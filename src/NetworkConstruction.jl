@@ -22,7 +22,6 @@ export construct_neuron!
 This function connects each pyramidal cell to an unique corresponding dendrite
 """
 function connecting_dendrites_one_to_one!(pyr_list::Vector{T}, dend_list::Vector{T}) where {T <: neuron,Y <: neuron}
-    # this function connects the dendrites to only one pyr cell
     for i = 1:length(pyr_list)
         push!(pyr_list[i].dendrites_list, dend_list[i])
         push!(dend_list[i].pyr_target, pyr_list[i])

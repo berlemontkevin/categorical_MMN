@@ -5,18 +5,21 @@ module BasicFunctions
     export f_I_Abott
 
 """
-    rect_linear
+    Function: rect_linear
 
-    blabla
+    This function return 0 or x depending on the sign of x
 """
 function rect_linear(x::Float64)
-    # this function takes max(0,x)
     temp = max(0, x)
     return temp
 end
 
+"""
+    Function: heaviside(x::Float64)
+
+Compute the heaviside function for x
+"""
 function heaviside(x::Float64)
-    # compute the heaviside function
     if x > 0.0
         temp = 1.0
     else
@@ -25,10 +28,14 @@ function heaviside(x::Float64)
     return temp
 end
 
+
+"""
+    Function: f_I_Abott(V::Float64, τ::Float64)
+
+Return the rate fo the neuron depeinding on the voltage
+Constructed following Abott Chance 2005
+"""
 function f_I_Abott(V::Float64, τ::Float64)
-    # return the rate depending on thevoltage
-    # Shape following Abott Chance 2005: parameters from Garcia 2017
-    # Need to have the time constant of the neuron as argument
     Vth = -50
     Vτ = -60
     v = 1.0

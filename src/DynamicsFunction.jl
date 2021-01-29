@@ -2,12 +2,7 @@
 
 
 module DynamicsFunction
-# using DrWatson
-# @quickactivate "1-project-categorical-MMN"
 
-# include(srcdir("NeuronalStructures.jl"))
-# push!(LOAD_PATH,srcdir())
-# using Parameters
 using Parameters
 
 
@@ -38,8 +33,6 @@ export update_fr!, update_syn_current!
 Updates  the firing rate of a rectified linear neuron. Takes the differential equation method in the arguments
 """
 function update_fr!(n::rectified_linear_neurons, euler_m::euler_method)
-    # in tis diff eq, the total FR is rectified
-    # the record variables indicates if n.fr is a list or just the last firing rate
     if euler_m.record
         push!(n.fr, n.fr[end])
         n.fr[end] += euler_m.dt / n.τ * (-n.fr[end] + n.Isyn[end] )
@@ -56,16 +49,15 @@ end
     Function: update_syn_current!(n::neuron)
 
 Updates  the synaptic current toward a neuron. IMPORTANT: the backgrounbd current is included in Isyn
+let's note that the synaptic weights have a SIGN
 """
 function update_syn_current!(n::neuron)
-    # update the synaptic current towards one neuron
-    # Rule: The sign of weights is taken into account in w
-    # Background current is added at the end
+
     n.Isyn[end] = 0.0
     for syn in n.neurons_list
         n.Isyn[end] += syn.pre_syn.fr[end] * syn.w[end]
     end
-    n.Isyn[end] += n.Ibg[end] # add the background input to the syn current
+    n.Isyn[end] += n.Ibg[end] 
 
 end
 
@@ -109,7 +101,6 @@ end
 Update the total current arriving at a dendrite following Hertag 2020 model for dendrites
 """
 function update_current!(d::dendrites_hertag, euler_m::euler_method)
-    # function that updates the total synaptic input generated in the dendrites
     if euler_m.record 
         p = d.pyr_target[1]
 
@@ -185,15 +176,16 @@ end
 
 
 """
-    Function: simulation_step!(nn::neural_network,euler_m::euler_method,type_network=="Hertag 2020")
+    Function: simulation_step!(nn::neural_motif,euler_m::euler_method,type_network=="Hertag 2020")
 
-    # TODO faire la doc
+
+...
+This function computes one dt step for a neural motif. 
+...
 """
 function simulation_step!(nn::neural_motif, euler_m::euler_method, type_network="Hertag 2020")
 
-    # cette function va s'appliquer des qu'il y a des dendrites et des pyr cells 
-    # le modele ici est specifique de hertag pour calcium spike
-    # TODO inclure la methode de l'equa diff
+
 
     if type_network == "Hertag 2020"
         N_pop = length(nn.list_pop)
