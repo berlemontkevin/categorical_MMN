@@ -91,10 +91,7 @@ end
 using .GeneralConstruction
 
 
-
-
 module Hertag2020_Construction
-
 
 using ...NeuronalStructures.NeuralNetwork
 using ..GeneralConstruction
@@ -145,6 +142,148 @@ end
 
 end
 using .Hertag2020_Construction
+
+
+module attractor_network_construction
+
+using ...NeuronalStructures.NeuralNetwork
+using ..GeneralConstruction
+using ...NeuronalStructures.local_circuit
+using ...NeuronalStructures.attractor_network
+ export construct_attractor_network
+
+function construct_attractor_network()
+## TODO : add some parameters as dictionnary
+
+
+    e1 = wong_wang_cell()
+    e2 = wong_wang_cell()
+    e1.Istim[1] = 5.2*0.0001*30.0*1.1
+    e1.Istim[1] = 5.2*0.0001*30.0*1.1
+    e2.Istim[1] = 5.2*0.0001*30.0*0.9
+    ww_network = wong_wang_network(threshold = 15.0)
+    push!(ww_network.list_units,e1)
+    push!(ww_network.list_units,e2)
+    return ww_network
+end
+
+end
+
+using .attractor_network_construction
+
+
+
+module local_microcircuit_network
+
+using ...NeuronalStructures.NeuralNetwork
+using ..GeneralConstruction
+using ...NeuronalStructures.local_circuit
+using ...NeuronalStructures.attractor_network
+using ...NeuronalStructures.RateDendrites
+
+using ..attractor_network_construction
+
+export create_network
+## TODO: un dictionnairedes param
+function construct_local_microcircuit(c::microcircuit)
+    # construct the microcircuit in sean case
+
+    vip1 = vip_cell()
+    sst1 = sst_cell()
+    pv1 = pv_cell()
+    dend1 = dend_Sean2020()
+    E1 = soma_Sean2020(den=dend1)
+    
+    vip2 = vip_cell()
+    sst2 = sst_cell()
+    dend2 = dend_Sean2020()
+    E2 = soma_Sean2020(den=dend2)
+    
+    
+    
+    push!(dend1.list_syn, gaba_syn(τ = 10*0.001, neuron_pre=sst1,neuron_post=dend1, g = -0.09))
+    push!(E1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=E1, g = -0.001))
+    push!(E1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=E1, g = 0.18))
+    
+    push!(vip1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=vip1, g = 0.058))
+    push!(vip1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=vip1, g = -0.1))
+    
+    push!(sst1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=sst1, g = 0.0435))
+    push!(sst1.list_syn, gaba_syn(neuron_pre=vip1,neuron_post=sst1, g = -0.05))
+    
+    push!(pv1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=pv1, g = 0.0435))
+    push!(pv1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=pv1, g = -0.17))
+    push!(pv1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=pv1, g = -0.18))
+    
+    #connect to E2
+    push!(dend2.list_syn, gaba_syn(τ = 10*0.001, neuron_pre=sst2,neuron_post=dend2, g = -0.09))
+    push!(E2.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=E2, g = -0.001))
+    push!(E2.list_syn, nmda_syn(neuron_pre=E2,neuron_post=E2, g = 0.18))
+    
+    push!(vip2.list_syn, nmda_syn(neuron_pre=E2,neuron_post=vip2, g = 0.058))
+    push!(vip2.list_syn, gaba_syn(neuron_pre=sst2,neuron_post=vip2, g = -0.1))
+    
+    push!(sst2.list_syn, nmda_syn(neuron_pre=E2,neuron_post=sst2, g = 0.0435))
+    push!(sst2.list_syn, gaba_syn(neuron_pre=vip2,neuron_post=sst2, g = -0.05))
+    
+    push!(pv1.list_syn, nmda_syn(neuron_pre=E2,neuron_post=pv1, g = 0.0435))
+    push!(pv1.list_syn, gaba_syn(neuron_pre=sst2,neuron_post=pv1, g = -0.17))
+    
+    
+    push!(sst1.list_syn, nmda_syn(neuron_pre=E2,neuron_post=sst1, g = 0.0435))
+    push!(sst2.list_syn, nmda_syn(neuron_pre=E1,neuron_post=sst2, g = 0.0435))
+
+    
+    push!(c.list_dend,dend1)
+    push!(c.list_dend,dend2)
+
+    push!(c.list_soma,E1)
+    push!(c.list_soma,E2)
+
+    push!(c.list_vip,vip1)
+    push!(c.list_vip,vip2)
+
+    push!(c.list_sst,sst1)
+    push!(c.list_sst,sst2)
+
+    push!(c.list_pv,pv1)
+
+
+
+end
+
+function connect_areas(ww_network::wong_wang_network,c::microcircuit)
+
+    e1 = ww_network.list_units[1]
+    e2 = ww_network.list_units[2]
+
+    E1 = c.list_soma[1]
+    E2 = c.list_soma[2]
+    push!(c.nn, ww_network )
+
+    push!(e1.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e1, g = 0.3255/0.6))
+    push!(e2.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e2, g = 0.3255))
+
+    push!(e2.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = 0.3255/0.6))
+    push!(e1.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = 0.3255))
+
+end
+
+
+
+function create_network()
+
+    c = microcircuit()
+    construct_local_microcircuit(c)
+    ww = construct_attractor_network()
+    connect_areas(ww,c)
+    return c
+end
+
+end
+using .local_microcircuit_network
+
+
 
 
 end

@@ -1,8 +1,10 @@
 module BasicFunctions
 
+    using Parameters 
     export rect_linear
     export heaviside
     export f_I_Abott
+    export OU_process, update_process!
 
 """
     Function: rect_linear
@@ -43,6 +45,20 @@ function f_I_Abott(V::Float64, τ::Float64)
     temp2 = (V - Vth) / (τ * (Vth - Vτ))
 
     return temp2 / temp
+end
+
+
+@with_kw mutable struct OU_process
+    τ::Float64 = 0.002
+    dt::Float64 = 0.0005
+    σ::Float64 = 5 * 0.001
+    noise::Float64 = 0.0
+end
+
+
+function update_process!(s_process::OU_process)
+    s_process.noise =  s_process.dt / s_process.τ * (-s_process.noise+ sqrt(s_process.τ*s_process.σ*s_process.σ)*randn())
+   
 end
 
 

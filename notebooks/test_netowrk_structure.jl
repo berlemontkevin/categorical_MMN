@@ -1,12 +1,52 @@
 using DrWatson
 @quickactivate "1-project-categorical-MMN"
 
+using Revise
 #loading packages
 using Parameters
 
 push!(LOAD_PATH,srcdir())
 
 using MyNeurosciencePackage
+
+
+
+
+#############
+# Test construction modele 2 areas
+
+
+c = MyNeurosciencePackage.NetworkConstruction.local_microcircuit_network.create_network()
+
+
+simu = MyNeurosciencePackage.NeuronalStructures.NeuralNetwork.simulation_parameters()
+
+c.nn
+
+for i=1:1000
+    MyNeurosciencePackage.DynamicsFunction.time_dynamics.time_step(c,simu)
+    #    push!(temp,E1.Itot)
+end
+
+
+c.list_dend[1].Istim = 0.1
+for i=1:1000
+    MyNeurosciencePackage.DynamicsFunction.time_dynamics.time_step(c,simu)
+#    push!(temp,E1.Itot)
+end
+
+using Plots
+gr()
+plotlyjs()
+
+plot(c.list_soma[1].r)
+
+
+plot(c.nn[1].list_units[1].r)
+
+#
+
+
 
 ### Definition of Hertag parameters
 Hertag_struct = syn_probabilities_hertag(pEP = 0.6,
