@@ -24,8 +24,9 @@ simu = MyNeurosciencePackage.NeuronalStructures.NeuralNetwork.simulation_paramet
 c.nn
 
 for i=1:1000
-    MyNeurosciencePackage.DynamicsFunction.time_dynamics.time_step(c,simu)
+    #MyNeurosciencePackage.DynamicsFunction.time_dynamics.time_step(c,simu)
     #    push!(temp,E1.Itot)
+    time_step(c,simu)
 end
 
 

@@ -9,7 +9,7 @@ using Parameters
 
 using ..BasicFunctions
 
-export simulation_step!
+export simulation_step!,time_step
 
 
 
@@ -385,7 +385,23 @@ function update_s!(network::wong_wang_network,simu::simulation_parameters)
         unit2 = network.list_units[2]
     
         # update syn current
+    for n in network.list_units
+        push!(n.Iexc , 0.0)
+        push!(n.Iinh , 0.0)
     
+        for s in n.list_syn
+            if s.g <0.0
+                n.Iinh[end] += s.g * s.neuron_pre.r[end]
+            else
+                n.Iexc[end] += s.g * s.neuron_pre.r[end]
+            end
+        end
+    end
+    # for now no modif of Istim TODO (ameliorer)
+       # push!(unit1.Istim,unit1.Istim[end])
+        #push!(unit2.Istim,unit2.Istim[end])
+
+
         push!(unit1.Ibg, unit1.Iexc[end] + unit1.Iinh[end])
         push!(unit2.Ibg, unit2.Iexc[end] + unit2.Iinh[end])
     
@@ -473,10 +489,10 @@ function time_step(c::microcircuit,sim::simulation_parameters)
     update_firing!.(c.list_pv)
 
     for nn in c.nn
-        for n in nn.list_units
-            current_synapses!(n)
+      #  for n in nn.list_units
+       #     current_synapses!(n)
         
-        end
+        #end
     update_s!(nn,sim)
     end
 for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma]

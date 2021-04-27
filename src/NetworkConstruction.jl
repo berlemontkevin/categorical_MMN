@@ -1,6 +1,7 @@
 
 module NetworkConstruction
 
+export create_network
 
 module GeneralConstruction
 
@@ -15,7 +16,6 @@ using ...NeuronalStructures.Synapses
 
 export connecting_dendrites_one_to_one!, connecting_two_populations!
 export construct_neuron!
-
 """
     Function: connecting_dendrites_one_to_one!(pyr_list::Vector{pyr_cell}, dend_list::Vector{dendrites})
 
@@ -158,9 +158,8 @@ function construct_attractor_network()
 
     e1 = wong_wang_cell()
     e2 = wong_wang_cell()
-    e1.Istim[1] = 5.2*0.0001*30.0*1.1
-    e1.Istim[1] = 5.2*0.0001*30.0*1.1
-    e2.Istim[1] = 5.2*0.0001*30.0*0.9
+    e1.Istim[1] = 0.3255
+    e2.Istim[1] = 0.3255
     ww_network = wong_wang_network(threshold = 15.0)
     push!(ww_network.list_units,e1)
     push!(ww_network.list_units,e2)
@@ -261,15 +260,49 @@ function connect_areas(ww_network::wong_wang_network,c::microcircuit)
     E2 = c.list_soma[2]
     push!(c.nn, ww_network )
 
-    push!(e1.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e1, g = 0.3255/0.6))
-    push!(e2.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e2, g = 0.3255))
+    push!(e1.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e1, g = ww_network.EEself))
+    push!(e2.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e2, g = ww_network.EEcross))
 
-    push!(e2.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = 0.3255/0.6))
-    push!(e1.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = 0.3255))
+    push!(e2.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = ww_network.EEself))
+    push!(e1.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = ww_network.EEcross))
+
+    sst1 = c.list_sst[1]
+    sst2 = c.list_sst[2]    
+
+    push!(sst1.list_syn,nmda_syn(neuron_pre=e1,neuron_post=sst1, g = 0.22))
+    push!(sst2.list_syn,nmda_syn(neuron_pre=e2,neuron_post=sst2, g = 0.22))
+
 
 end
 
+function connect_areas(ww_network::wong_wang_network,c::microcircuit,temp_topdowm::Float64)
+# TODO
+    e1 = ww_network.list_units[1]
+    e2 = ww_network.list_units[2]
 
+    E1 = c.list_soma[1]
+    E2 = c.list_soma[2]
+    push!(c.nn, ww_network )
+
+    push!(e1.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e1, g = ww_network.EEself))
+    push!(e2.list_syn,nmda_syn(neuron_pre=E1,neuron_post=e2, g = ww_network.EEcross))
+
+    push!(e2.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = ww_network.EEself))
+    push!(e1.list_syn,nmda_syn(neuron_pre=E2,neuron_post=e2, g = ww_network.EEcross))
+
+    push!(E1.den.list_syn,nmda_syn(neuron_pre=e1,neuron_post=E1.den, g = 0.2))
+    push!(E2.den.list_syn,nmda_syn(neuron_pre=e2,neuron_post=E2.den, g = 0.2))
+
+
+
+    vip1 = c.list_vip[1]
+    vip2 = c.list_vip[2]    
+
+    push!(vip1.list_syn,nmda_syn(neuron_pre=e1,neuron_post=vip1, g = temp_topdowm))
+    push!(vip2.list_syn,nmda_syn(neuron_pre=e2,neuron_post=vip2, g = temp_topdowm))
+
+
+end
 
 function create_network()
 
@@ -280,6 +313,14 @@ function create_network()
     return c
 end
 
+function create_network(t::Float64)
+# TODO
+    c = microcircuit()
+    construct_local_microcircuit(c)
+    ww = construct_attractor_network()
+    connect_areas(ww,c,t)
+    return c
+end
 end
 using .local_microcircuit_network
 

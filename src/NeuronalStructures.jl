@@ -1,6 +1,7 @@
 module NeuronalStructures
 
 
+export simulation_parameters
 
 
 ##############################################################################################################
@@ -9,6 +10,7 @@ module NeuronalStructures
 module AbstractNeuronalTypes
 using Parameters
 export eq_diff_method, neuron, dendrite, pyr_cell, synapses, interneuron
+
 
 
 """
@@ -337,7 +339,7 @@ end
 end
 
 @with_kw struct wong_wang_network 
-  noiseamp::Float64  =0.02# noise amp of the OU process
+  noiseamp::Float64  =0.009# noise amp of the OU process
   i0::Float64 = 0.3255 #resting state of the OU process
   jn11::Float64 =0.2609# Synaptic strength unit 1 to 1
   jn21::Float64 = 0.0497# Synaptic strength unit 2 to 1
@@ -347,6 +349,9 @@ end
   tampa::Float64 = 2.0 * 0.001# time constant of AMPA receptors
   threshold::Float64# threhsold of the decision
   list_units::Array{wong_wang_cell} = []
+  EEself::Float64 = 11.0*0.0001
+  EEcross::Float64 = 11.0*0.0001/2.0
+
 
 end
 
