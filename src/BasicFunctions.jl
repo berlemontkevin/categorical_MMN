@@ -16,6 +16,16 @@ function rect_linear(x::Float64)
     return temp
 end
 
+
+"""
+    FUnction: sigmoid
+
+    This function returns the sigmoid of x
+"""
+function sigmoid(x::Float64)
+    return 1.0./(1.0.+ exp.(-x))
+end
+
 """
     Function: heaviside(x::Float64)
 
