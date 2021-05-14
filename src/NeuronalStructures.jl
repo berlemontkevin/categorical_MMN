@@ -3,6 +3,8 @@ module NeuronalStructures
 
 export simulation_parameters
 
+export dendrites_param_sigmoid, dend_sigmoid, soma_PC
+export neural_integrator, microcircuit
 
 ##############################################################################################################
 # Abstract types
@@ -10,7 +12,6 @@ export simulation_parameters
 module AbstractNeuronalTypes
 using Parameters
 export eq_diff_method, neuron, dendrite, pyr_cell, synapses, interneuron
-
 
 
 """
@@ -160,98 +161,14 @@ end
 using .NeuronalModels
 
 
-#######################
-# Hertag & Sprekler 2020
-###########################
-module Hertag2020_Structures
-
-using Parameters
-using ..AbstractNeuronalTypes, ..Synapses
-
-export soma_hertag, dendrites_hertag
-
-
-"""
-    Structure: Soma hertag <: pyr cell
-
-Defines the soma following (https://elifesciences.org/articles/57541)
-
-...
-# Arguments
-- TauE::Float64 = time constant of the soma en seconde
-- fr::Vector{Float64} = vector of the history of firing rate of the soma
-- Isyn::Vector{Float64} = vector of the history of synaptic inputs to the soma
-- Ibg::Vector{Float64} = vector of the history of background input to the soma
-- Itot::Vector{Float64} = vector of the total synaptic input 
-- LamdaD::Float64 = leaking conductivity of the dendrites
-- LambdaE::Float64 = leaking ocnductivity of the soma
-- Thetar::Float64 =  rheobase of the neuron
-- objective rate::Float64 = objective rate of this neuron (not used if negative)
-- dendrites list::Vector{dendrite} =  list of the dendrites connected to this pyr_cell
-- neurons list::Vector{syn connection} = vector of presynaptic connections to this soma
-...
-"""
-@with_kw struct soma_hertag  <: pyr_cell
-    τE::Float64 = 0.060 
-    fr::Vector{Float64} = [0.0] 
-    Isyn::Vector{Float64} = [0.0]
-    Ibg::Vector{Float64} = [0.0] 
-    Itot::Vector{Float64} = [0.0] 
-    λD::Float64 = 0.27
-    ID::Vector{Float64} = [0.0]
-    λE::Float64 = 0.31
-    Θr::Float64 = 14.0 
-    IE::Vector{Float64} = [0.0]
-
-
-    objective_rate::Float64 = -1.0 
-
-    
-    dendrites_list::Vector{dendrite} = dendrite[] 
-    neurons_list::Vector{syn_connection} = syn_connection[]
-
-
-end
-
-
-"""
-    Struct: dendriteshertag
-
-...
-# Arguments
-- neurons list::Vector{syn connection} = list of the presynaptic neurons connected to the dendrite
-- Thetac::Float64 =  minimal input to produce a calcium spike
-- Itot::Vector{Float64} =  total synaptically generated input in the dendrites
-- gain calcium::Float64= calcium gain of the calcium spike
-- Isyn::Vector{Float64} = total synaptic input to the dendrite
-- pyr target::Vector{soma hertag} =  target of the dendrites: pyramidal cells
-- Ibg::Vector{Float64} = background input to the dendrite
-- calcium spike::Vector{Float64} =  input resulting from calclium spike
-...
-"""
-@with_kw  struct dendrites_hertag <: dendrite
-    neurons_list::Vector{syn_connection} = syn_connection[]
-    Θc::Float64 = 28.0 
-    Itot::Vector{Float64} = [0.0]
-    gain_calcium::Float64 = 7 # Hz
-    Isyn::Vector{Float64} = [0.0]
-    pyr_target::Vector{soma_hertag} = soma_hertag[] 
-    Ibg::Vector{Float64} = [0.0]
-    calcium_spike::Vector{Float64} = [0.0]
-
-end
-
-end
-
-using .Hertag2020_Structures
-
 
 
 module attractor_network
 using Parameters
 using ..AbstractNeuronalTypes, ..EqDiffMethod
+using ...BasicFunctions
 
-export wong_wang_cell
+export wong_wang_cell, neural_integrator
 
 @with_kw struct wong_wang_cell <: neuron
     r::Array{Float64} = [0.0]
@@ -271,7 +188,25 @@ export wong_wang_cell
 
 end
 
-
+ # will be in simulation parameters later for the time dt
+@with_kw struct neural_integrator <: neuron
+    τ::Float64 = 0.8 # test d'une cste de temps
+    dt::Float64 = 0.0005
+    α::Float64 = 0.8
+    a::Float64 = 135.0
+    b::Float64 = 54.0
+    c::Float64 = 0.308 #secondes
+    r::Array{Float64}= [0.0]		
+    Iexc::Array{Float64} = [0.0]
+    Iinh::Array{Float64} = [0.0]
+    list_syn::Array{synapses} = []
+    Ibg::Float64 = 310.0 * 0.001
+    Itot::Array{Float64} = [0.0]
+    Inoise::Array{Float64} = [0.0]
+    Istim::Float64 = 0.0
+    OU_process::OU_process = OU_process()
+    
+end
 
 end
 using .attractor_network
@@ -331,11 +266,15 @@ end
 
 
 
-@with_kw struct simulation_parameters
+@with_kw mutable struct simulation_parameters
     dt::Float64 = 0.0005
-    Tfin::Float64 = 2.0
-    Tstimdebut::Float64 = 1.0
-    
+    Tfin::Float64 = 20.0
+    Tstimdebut::Float64 = 0.0
+    Tstimfin::Float64 = 2.5    
+    Tstimduration::Float64=1.0
+    Stimulus::Array{Float64} = []
+
+
 end
 
 @with_kw struct wong_wang_network 
@@ -367,7 +306,8 @@ module RateDendrites
 using Parameters
 
 using ..AbstractNeuronalTypes, ..EqDiffMethod, ...BasicFunctions
-export dendrites_param, soma_Sean2020, dend_Sean2020
+export dendrites_param, soma_Sean2020, dend_Sean2020, dendrites_param_sigmoid, dend_sigmoid
+export soma_PC
 # inputs to the rate model will be the time average total conductance of exc and inh synapses
 
 
@@ -382,6 +322,66 @@ export dendrites_param, soma_Sean2020, dend_Sean2020
 
 end
 
+@with_kw mutable struct adaptation_variables
+    sA::Array{Float64} = [0.0]
+    τA::Float64 = 0.1 #seconds as for facilitation
+    gA::Float64 = -0.5 # value to test
+end
+
+
+struct dendrites_param_sigmoid
+     # param of the dendrites from : (units to precise)
+     c1::Float64 
+     c2::Float64 
+     c3::Float64 
+     c4::Float64 
+     c5::Float64 
+     c6::Float64 
+end
+
+
+@with_kw mutable struct dend_sigmoid <:dendrite
+    param_c::dendrites_param_sigmoid = [0.0,0.0,0.0,0.0,0.0,0.0]
+    Iexc::Array{Float64} = [0.0]
+    Iinh::Array{Float64} = [0.0]
+    Ioutput::Array{Float64} = [0.0]
+    list_syn::Array{synapses} = []
+    Ibg::Float64 = 100.0 * 0.001
+    Itot::Array{Float64} = [0.0]
+    Inoise::Array{Float64} = [0.0]
+    Istim::Float64 = 0.0
+    dt::Float64 = 0.0005
+    τ::Float64 = 0.002
+    OU_process::OU_process = OU_process()
+
+end
+
+
+@with_kw mutable struct soma_PC <: pyr_cell
+
+    Idendexc::Float64 = 0.0
+    Idendinh::Float64 = 0.0
+    f_I_curve = zeros(3)
+    r::Array{Float64} = [0.0]
+    Iinput::Array{Float64} = [0.0]
+    a::Float64 = 135.0
+    b::Float64 = 54.0
+    c::Float64 = 0.308 #secondes
+    den::dendrite #dendrite connected to the soma
+    Iexc::Array{Float64} = [0.0]
+    Iinh::Array{Float64} = [0.0]
+    list_syn::Array{synapses} = []
+    Ibg::Float64 = 0.15#0.35#310.0 * 0.001
+    Itot::Array{Float64} = [0.0]
+    Inoise::Array{Float64} = [0.0]
+    Istim::Float64 = 0.0
+    dt::Float64 = 0.0005
+    τ::Float64 = 0.002
+    OU_process::OU_process = OU_process()
+    adaptation::adaptation_variables = adaptation_variables()
+    adaptation_boolean = false # boolean of adaptation or not
+
+end
 
 @with_kw mutable struct soma_Sean2020 <: pyr_cell
 
@@ -402,7 +402,7 @@ end
     Itot::Array{Float64} = [0.0]
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
-    dt::Float64=0.0005
+    dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
 
@@ -419,7 +419,7 @@ end
     Itot::Array{Float64} = [0.0]
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
-    dt::Float64=0.0005
+    dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
 
@@ -435,7 +435,7 @@ using .RateDendrites
 module local_circuit
 # let's start with only one dendrites
 using Parameters
-using ..AbstractNeuronalTypes, ..EqDiffMethod, ...BasicFunctions, ..NeuralNetwork
+using ..AbstractNeuronalTypes, ..attractor_network, ..EqDiffMethod, ...BasicFunctions, ..NeuralNetwork
 export pv_cell, sst_cell, vip_cell, gaba_syn, ampa_syn,nmda_syn, local_circuit_interneuron
 abstract type excitatory_synapse <: synapses end
 abstract type local_circuit_interneuron <: interneuron end
@@ -455,7 +455,7 @@ export microcircuit
     Itot::Array{Float64} = [0.0]
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
-    dt::Float64=0.0005
+    dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
 end
@@ -469,11 +469,11 @@ end
     Iexc::Array{Float64} = [0.0]
     Iinh::Array{Float64} = [0.0]
     list_syn::Array{synapses} = []
-    Ibg::Float64 = 300.0 * 0.001
+    Ibg::Float64 = 0.200#300.0 * 0.001
     Itot::Array{Float64} = [0.0]
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
-    dt::Float64=0.0005
+    dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
 end
@@ -491,7 +491,7 @@ end
     Itot::Array{Float64} = [0.0]
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
-    dt::Float64=0.0005
+    dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
 end
@@ -504,9 +504,18 @@ end
     γ::Float64 =  2
     g::Float64
     s::Array{Float64} = [0.0]
-    dt::Float64=0.0005
+    dt::Float64 = 0.0005
 
 end
+
+
+@with_kw struct facilitation_parameters
+    U::Float64 = 0.2
+    τ::Float64 = 1.5 # secondes
+    dt::Float64 = 0.0005
+end
+
+
 
 @with_kw mutable struct ampa_syn <: synapses
     τ::Float64 = 2 * 0.001 #s
@@ -515,8 +524,11 @@ end
     γ::Float64 = 5
     g::Float64
     s::Array{Float64} = [0.0]
-    dt::Float64=0.0005
-
+    dt::Float64 = 0.0005
+    facilitation = false
+    u::Array{Float64}=[1.0/2.5]
+    mult::Float64 = 2.5 # account for the fact that u is below 1
+    f_param = facilitation_parameters()
 end
 
 @with_kw mutable struct nmda_syn <: synapses
@@ -526,7 +538,11 @@ end
     τ::Float64 = 60 * 0.001 #s
     g::Float64
     s::Array{Float64} = [0.0]
-    dt::Float64=0.0005
+    dt::Float64 = 0.0005
+    facilitation = false
+    u::Array{Float64}=[1.0/2.5]
+    mult::Float64 = 2.5 # account for the fact that u is below 1
+    f_param = facilitation_parameters()
 
 end
 
@@ -539,6 +555,7 @@ end
     list_pv::Array{pv_cell} = []
     list_dend::Array{dendrite} = []
     nn::Array{wong_wang_network} = []
+    list_integrator::Array{neural_integrator} = []
 
 end
 

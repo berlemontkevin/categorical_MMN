@@ -11,6 +11,13 @@ using MyNeurosciencePackage
 
 
 
+############ 
+#test sigmoid dend
+
+
+dend_param = dendrites_param_sigmoid(c1 = 0.12, c2 = 7.0,c3 = -0.482,c4 = 0.00964,c5 = 0.19624,c6 = 0.0)
+
+
 
 #############
 # Test construction modele 2 areas

@@ -8,7 +8,7 @@ module GeneralConstruction
 using ...NeuronalStructures.AbstractNeuronalTypes
 using ...NeuronalStructures.NeuralNetwork
 
-using ...NeuronalStructures.Hertag2020_Structures
+#using ...NeuronalStructures.Hertag2020_Structures
 
 using ...NeuronalStructures.NeuronalModels
 
@@ -90,58 +90,6 @@ end
 
 using .GeneralConstruction
 
-
-module Hertag2020_Construction
-
-using ...NeuronalStructures.NeuralNetwork
-using ..GeneralConstruction
-
-export construct_network_hertag!
-
-"""
-    Function: construct_network_hertag!(nn::neural_network)
-
-Takes a neural network as argument. Modify it with everything constructed.
-Following Hertag model, One to one dendrites connectivity
-"""
-function construct_network_hertag!(nn::neural_motif, normalized=true)
-
-    N_pop = length(nn.list_pop)
-    N_neurons = zeros(N_pop)
-    for i = 1:N_pop
-        N_neurons[i] = nn.list_pop[i].N
-    end
-
-    list_types = String[]
-    for i = 1:N_pop
-        push!(list_types, nn.list_pop[i].type_global)
-    end
-
-
-    for np in nn.list_pop
-        construct_neuron!(np)
-    end
-
-    connecting_dendrites_one_to_one!(nn.list_pop[findfirst(isequal("pyr_cells"), list_types)].list_neurons,
-    nn.list_pop[findfirst(isequal("dendrites"), list_types)].list_neurons)
-    
-
-    if normalized
-        for i = 1:N_pop
-            for j = 1:N_pop
-                if nn.m_prob[i,j] != 0.0
-                    temp = nn.m_weights[i,j] ./ (nn.m_prob[i,j] .* nn.list_pop[j].N)
-                    connecting_two_populations!(nn.list_pop[i].list_neurons, nn.list_pop[j].list_neurons, nn.m_prob[i,j], temp)
-                end
-            end
-        end
-
-    end
-
-end
-
-end
-using .Hertag2020_Construction
 
 
 module attractor_network_construction
@@ -276,7 +224,7 @@ function connect_areas(ww_network::wong_wang_network,c::microcircuit)
 end
 
 function connect_areas(ww_network::wong_wang_network,c::microcircuit,temp_topdowm::Float64)
-# TODO
+    # TODO
     e1 = ww_network.list_units[1]
     e2 = ww_network.list_units[2]
 
@@ -314,13 +262,71 @@ function create_network()
 end
 
 function create_network(t::Float64)
-# TODO
+    # TODO
     c = microcircuit()
     construct_local_microcircuit(c)
     ww = construct_attractor_network()
     connect_areas(ww,c,t)
     return c
 end
+
+function construct_local_microcircuit_integrator(c::microcircuit; dend_param = dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.19624, 0.0), facilitation = false, adaptation = false)
+    # construct the microcircuit in sean case
+
+    vip1 = vip_cell()
+    sst1 = sst_cell()
+    pv1 = pv_cell()
+    dend1 = dend_sigmoid(param_c = dend_param)
+    E1 = soma_PC(den=dend1, adaptation_boolean = adaptation)
+    integrator1 = neural_integrator()
+    
+    
+    push!(dend1.list_syn, gaba_syn(τ = 10*0.001, neuron_pre=sst1,neuron_post=dend1, g = -0.09))#0.09
+    push!(E1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=E1, g = -0.005))#-0.001
+    push!(E1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=E1, g = 0.18))
+    
+    push!(vip1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=vip1, g = 0.058))
+    push!(vip1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=vip1, g = -0.1))
+    
+    push!(sst1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=sst1, g = 0.0435))
+    push!(sst1.list_syn, gaba_syn(neuron_pre=vip1,neuron_post=sst1, g = -0.05))
+    
+    push!(pv1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=pv1, g = 0.08435))#0.0435
+    push!(pv1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=pv1, g = -0.17))#-0.17
+    push!(pv1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=pv1, g = -0.18))
+    
+       
+
+    push!(sst1.list_syn,nmda_syn(neuron_pre=integrator1,neuron_post=sst1, g = 0.22, facilitation = facilitation))
+
+    push!(integrator1.list_syn, nmda_syn(neuron_pre = E1, neuron_post = integrator1, g = 0.15))
+
+    push!(c.list_dend,dend1)
+  
+    push!(c.list_soma,E1)
+   
+    push!(c.list_vip,vip1)
+  
+    push!(c.list_sst,sst1)
+  
+    push!(c.list_pv,pv1)
+
+    push!(c.list_integrator,integrator1)
+
+
+
+end
+
+function create_network(keyword::String; dend_param = dendrites_param_sigmoid(0.20, -7.0, -0.482, 0.00964, 0.11, 0.1), facilitation = false, adaptation = false)
+    if keyword == "integrator"
+        c = microcircuit()
+        construct_local_microcircuit_integrator(c; dend_param, facilitation,adaptation)
+    end
+
+    return c
+end
+
+
 end
 using .local_microcircuit_network
 

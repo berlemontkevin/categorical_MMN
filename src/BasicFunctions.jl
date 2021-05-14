@@ -1,7 +1,7 @@
 module BasicFunctions
 
     using Parameters 
-    export rect_linear
+    export rect_linear, sigmoid
     export heaviside
     export f_I_Abott
     export OU_process, update_process!
@@ -62,14 +62,24 @@ end
     τ::Float64 = 0.002
     dt::Float64 = 0.0005
     σ::Float64 = 5 * 0.001
-    noise::Float64 = 0.0
+    noise::Array{Float64} = [0.0]
 end
 
 
 function update_process!(s_process::OU_process)
-    s_process.noise =  s_process.dt / s_process.τ * (-s_process.noise+ sqrt(s_process.τ*s_process.σ*s_process.σ)*randn())
+    push!(s_process.noise, s_process.noise[end])
+    s_process.noise[end] +=  s_process.dt / s_process.τ * (-s_process.noise[end]+ sqrt(s_process.τ*s_process.σ*s_process.σ)*randn())
    
 end
+
+
+
+
+
+
+
+
+
 
 
 end

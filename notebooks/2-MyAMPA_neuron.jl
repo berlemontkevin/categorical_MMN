@@ -157,7 +157,7 @@ begin
 
 	FIseansigmoid(Iexc,Iinh) = 0.12.*2.0.*(-0.5.+sigmoid.((Iexc .+ 7.0.*Iinh .+ 0.0)./(0.00964.*exp.(-Iinh./0.02)))) .+ 0.13624
 	
-	FIseansigmoidv2(Iexc,Iinh) = 0.12.*1.0.*(-0.5.+sigmoid.((Iexc .+ 7.0.*Iinh .+ 0.0)./(-0.00964.*50.0.*Iinh.+0.00964))) .+ 0.19624
+	FIseansigmoidv2(Iexc,Iinh) = 0.20.*1.0.*(-0.5.+sigmoid.((Iexc .+ 7.0.*Iinh .+ 0.1)./(-0.00964.*50.0.*Iinh.+0.00964))) .+ 0.11#19624
 end
 
 # ╔═╡ 485b4d95-6795-4cc5-9f68-64fe73a3400d
@@ -260,7 +260,7 @@ end
 # ╔═╡ b1b410ba-1984-4cc2-b86c-4bdbd7442081
 begin 
 	
-	Sigmoid2D_withparam(p,Iexc,Iinh) =  0.12.*1.0.*(-0.5.+sigmoid.((Iexc .+ 7.0.*Iinh .+ 0.0)./(-p[1].*Iinh.+p[2]))) .+ 0.19624
+	Sigmoid2D_withparam(p,Iexc,Iinh) =  0.12.*1.0.*(-0.5.+sigmoid.((Iexc .+ 7.0.*Iinh .+ 0.0)./(-p[1].*Iinh.+p[2]))) .+ 0.15624
 	
 	plot(Iinh,AbottChance.(0.4.+Sigmoid2D_withparam(pfit,Iexc_cst,Iinh)),linewidth=2,label = Iexc_cst)
 	
@@ -384,22 +384,22 @@ The firing rate function is then the standard Abott and Chance one.
 # ╟─7a78bdea-339b-4fca-9cc7-f04ced919834
 # ╟─ca3fad61-e712-46c8-a84a-34ed6fbd40d7
 # ╠═613026c8-9ec1-408a-8e31-77eaed5aa8cd
-# ╟─9620592f-1c3a-4911-93d5-d7b11f33e210
+# ╠═9620592f-1c3a-4911-93d5-d7b11f33e210
 # ╠═485b4d95-6795-4cc5-9f68-64fe73a3400d
-# ╟─0cb4322b-1e60-4a49-a4bc-f7875dd937ce
+# ╠═0cb4322b-1e60-4a49-a4bc-f7875dd937ce
 # ╟─8a2fe1c2-ebdf-4e92-9550-34099617434c
 # ╟─024f8b3e-175f-4551-81eb-809cd0fa7908
 # ╠═094b97dd-fecb-42ff-be1b-fdb1ff12b83e
 # ╠═281e0487-1770-44d8-80d2-2939e5953698
 # ╟─cf8fd2d7-457f-49a3-bce3-3d58269ca125
 # ╟─0a043d7a-c3b3-4f4d-bb79-dbe73eb12640
-# ╟─783d1513-4710-44dd-b05f-7661169003c0
-# ╟─5d7545ab-29a9-4efc-bd62-f2a0ba6d27e5
-# ╟─b1b410ba-1984-4cc2-b86c-4bdbd7442081
+# ╠═783d1513-4710-44dd-b05f-7661169003c0
+# ╠═5d7545ab-29a9-4efc-bd62-f2a0ba6d27e5
+# ╠═b1b410ba-1984-4cc2-b86c-4bdbd7442081
 # ╠═c45193ca-dac7-4954-8f96-6bffedb491cd
 # ╠═dceee7cd-0793-4a0a-b843-82b91f41f9e6
-# ╟─89109d9c-4b6d-4ee5-8dbe-4239e1d14565
-# ╟─c2ac1c3e-e4f9-4fe7-af3d-e5f00ea9ba09
+# ╠═89109d9c-4b6d-4ee5-8dbe-4239e1d14565
+# ╠═c2ac1c3e-e4f9-4fe7-af3d-e5f00ea9ba09
 # ╟─267bd8a8-b4af-43e7-8034-6b47cb46de2d
 # ╠═8211c947-c072-4c98-bbe7-353aef99f10b
 # ╠═b8a93ac9-e576-41ea-927a-7791531eefc7

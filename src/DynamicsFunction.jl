@@ -11,8 +11,10 @@ using ..BasicFunctions
 
 export simulation_step!,time_step
 
+export dendrite_input_output!, update_firing!
 
 
+export sum_input!, current_to_frequency!, update_dend!, full_time_dynamics
 
 
 module GeneralDynamicalFunctions
@@ -21,6 +23,7 @@ using ...NeuronalStructures.AbstractNeuronalTypes
 using ...NeuronalStructures.NeuronalModels
 using ...NeuronalStructures.EqDiffMethod
 using ...NeuronalStructures.NeuralNetwork
+using ...NeuronalStructures.attractor_network
 
 using ...BasicFunctions
 
@@ -61,181 +64,11 @@ function update_syn_current!(n::neuron)
         n.Isyn[end] += syn.pre_syn.fr[end] * syn.w[end]
     end
     n.Isyn[end] += n.Ibg[end] 
-
+end
 end
 
-end
 using .GeneralDynamicalFunctions
 
-module Hertag2020_Functions
-###################################
-# Functions Hertag
-###################################
-
-
-using ...NeuronalStructures.Hertag2020_Structures
-using ...NeuronalStructures.EqDiffMethod
-using ...NeuronalStructures.NeuralNetwork
-
-
-using ..GeneralDynamicalFunctions
-
-
-using ...BasicFunctions
-
-export simulation_step!
-
-"""
-    Function: compute_calcium_spike!(dend::dendrites_hertag,euler_m::euler_method)
-
-Compute the calcium spike of a dendrite if a calcium dendritic event occurs 9following hertag 2020). Computed using euler_method
-"""
-function compute_calcium_spike!(dend::dendrites_hertag, euler_m::euler_method)
-    if euler_m.record 
-        push!(dend.calcium_spike, dend.gain_calcium * heaviside(dend.Itot[end] - dend.Θc))
-    else
-        dend.calcium_spike[end] = dend.gain_calcium * heaviside(dend.Itot[end] - dend.Θc)
-    end
-end
-
-"""
-    Function: update_current!(d::dendrites_hertag,euler_m::euler_method)
-
-Update the total current arriving at a dendrite following Hertag 2020 model for dendrites
-"""
-function update_current!(d::dendrites_hertag, euler_m::euler_method)
-    if euler_m.record 
-        p = d.pyr_target[1]
-
-        push!(d.Itot,  p.λE * p.Isyn[end] + (1.0 - p.λD) * d.Isyn[end])
-    else
-        p = d.pyr_target[1]
-        d.Itot[end] = p.λE * p.Isyn[end] + (1.0 - p.λD) * d.Isyn[end]
-    end
-end
-
-
-"""
-    Function: update_fr!(pyr_cell::soma_hertag,euler_m::euler_method)
-
-Update the firing rate of a pyramidal cell following Hertag 2020 model
-"""
-function GeneralDynamicalFunctions.update_fr!(pyr_cell::soma_hertag, euler_m::euler_method)
-    if euler_m.record 
-        push!(pyr_cell.fr, pyr_cell.fr[end] + euler_m.dt / pyr_cell.τE * (-pyr_cell.fr[end] + rect_linear(pyr_cell.Itot[end] - pyr_cell.Θr)))
-    else
-        pyr_cell.fr[end] += euler_m.dt / pyr_cell.τE * (-pyr_cell.fr[end] + rect_linear(pyr_cell.Itot[end] - pyr_cell.Θr))
-
-    end
-end
-
-
-"""
-    Function: update_current!(pyr_cell::soma_hertag)
-
-Update the total current of a pyramidal cell following Hertag 2020 model
-"""
-function update_current!(pyr_cell::soma_hertag, euler_m::euler_method)
-    if euler_m.record 
-        push!(pyr_cell.Itot, 0.0)
-    else
-        pyr_cell.Itot[end] = 0.0
-        
-    end
-    
-    for d in pyr_cell.dendrites_list
-        pyr_cell.Itot[end] += pyr_cell.λD .* rect_linear.(d.Isyn[end] .+ d.calcium_spike[end]) 
-        
-    end
-    pyr_cell.Itot[end] += (1.0 .- pyr_cell.λE) .* pyr_cell.Isyn[end]
-end
-
-
-"""
-    Function: background_objective!(n::soma_hertag)
-    
-This function sets up the bacground current needed to achieve the objective of a soma modeled following Hertag 2020
-"""
-function background_objective!(n::soma_hertag, euler_m::euler_method)
-    temp2 = 0.0
-    for syn in n.neurons_list
-        temp2 += syn.pre_syn.objective_rate * syn.w[end]
-    end
-    d = n.dendrites_list[1]
-    temp = 0.0
-    for syn in d.neurons_list
-        temp += syn.pre_syn.objective_rate * syn.w[end]
-    end
-    temp = max(temp, 0.0)
-    if euler_m.record 
-        push!(n.Ibg,    (n.objective_rate + n.Θr - (n.λD * temp)) / (1.0 - n.λE) - temp2)
-    else
-        n.Ibg[end] = (n.objective_rate + n.Θr - (n.λD * temp)) / (1.0 - n.λE) - temp2
-    end
-end
-
-
-
-
-
-"""
-    Function: simulation_step!(nn::neural_motif,euler_m::euler_method,type_network=="Hertag 2020")
-
-
-...
-This function computes one dt step for a neural motif. 
-...
-"""
-function simulation_step!(nn::neural_motif, euler_m::euler_method, type_network="Hertag 2020")
-
-
-
-    if type_network == "Hertag 2020"
-        N_pop = length(nn.list_pop)
-        list_types = String[]
-        for i = 1:N_pop
-            push!(list_types, nn.list_pop[i].type_global)
-        end
-    
-        dendrites_pop = findall(x -> x == "dendrites", list_types)
-        no_dendrites_pop = findall(x -> x != "dendrites", list_types)
-        pyr_cells_pop = findall(x -> x == "pyr_cells", list_types)
-
-    
-        for np in nn.list_pop[no_dendrites_pop]
-            for n in np.list_neurons
-                update_syn_current!(n) # of everyone
-
-            end
-        end
-
-        for np in nn.list_pop[dendrites_pop]
-            for n in np.list_neurons
-                update_syn_current!(n) # of everyone
-                update_current!(n, euler_m) # all dendrites
-                compute_calcium_spike!(n, euler_m) # compute all calcium spikes)
-            end
-        end
-
-        for np in nn.list_pop[pyr_cells_pop]
-            for n in np.list_neurons
-                update_current!(n,euler_m) # all pyr cells
-            end
-        end
-
-        for np in nn.list_pop[no_dendrites_pop]
-            for n in np.list_neurons
-                update_fr!(n, euler_m) # update all firing rates
-
-            end
-        end
-    end
-
-end
-
-end
-
-using .Hertag2020_Functions
 
 
 
@@ -249,6 +82,8 @@ using ...NeuronalStructures.AbstractNeuronalTypes
 
 using ...NeuronalStructures.RateDendrites
 using ...NeuronalStructures.local_circuit
+using ...NeuronalStructures.attractor_network
+
 
 using ..GeneralDynamicalFunctions
 
@@ -256,7 +91,9 @@ using ..GeneralDynamicalFunctions
 using ...BasicFunctions
 
 
-export dendrite_input_output!, sum_input, current_to_frequency!, update_firing!, synapse_derivative, current_synapses!, update_dend!
+export dendrite_input_output!, sum_input!, current_to_frequency!, update_firing!, synapse_derivative, current_synapses!, update_dend!
+export update_firing!
+
 
 function dendrite_input_output!(d::dend_Sean2020)
     # dendridic function
@@ -266,16 +103,47 @@ function dendrite_input_output!(d::dend_Sean2020)
     push!(d.Ioutput , c1*(tanh((d.Iexc[end] +c3*d.Iinh[end] + c4)/β)) + c2)
 end
 
+#TODO : struct d'une dendrite prenant en argument le type de dendrite
+
+function dendrite_input_output!(d::dend_sigmoid)
+    @unpack c1, c2, c3, c4, c5, c6 = d.param_c
+    y = (d.Iexc[end] .- c2.*d.Iinh[end] .+ c6 )/(c3.*d.Iinh[end] .+ c4)
+    push!(d.Ioutput, c1.*(-0.5 .+ sigmoid(y)).+c5 )
+end
+
+
 # need an abstract type for the neurons
-function sum_input(n::T where {T<: local_circuit_interneuron} )
+function sum_input!(n::T where {T<: local_circuit_interneuron} )
+    push!(n.Inoise, n.OU_process.noise[end])
     push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim )
 end
 
-function sum_input(n::soma_Sean2020)
+function sum_input!(n::soma_Sean2020)
+    push!(n.Inoise, n.OU_process.noise[end])
+
     push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput[end])
 
 end
+function sum_input!(n::soma_PC)
+    push!(n.Inoise, n.OU_process.noise[end])
 
+    if n.adaptation_boolean
+        update_adaptation!(n)
+
+        Iadapt = n.adaptation.gA * n.adaptation.sA[end]
+        push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput[end]+ Iadapt)
+
+    else
+        push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput[end])
+
+    end
+end
+
+function sum_input!(n::neural_integrator)
+    push!(n.Inoise, n.OU_process.noise[end])
+
+    push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim )
+end
 
 function current_to_frequency!(neuron::pyr_cell)
     # r is the rate of the neuron
@@ -290,6 +158,17 @@ function current_to_frequency!(neuron::pyr_cell)
 end
 
 
+function current_to_frequency!(neuron::neural_integrator)
+    a = neuron.a
+    b = neuron.b
+    d = neuron.c
+    # for now, the integrtor is on the f-I curve
+    
+    return neuron.α.*neuron.r[end] .+ (a*neuron.Itot[end] - b)/(1 - exp(-d*(a*neuron.Itot[end] - b)))
+    
+end
+
+
 function current_to_frequency!(neuron::T where {T<: local_circuit_interneuron})
     # r is the rate of the neuron
     c_I = neuron.c_I
@@ -299,6 +178,8 @@ function current_to_frequency!(neuron::T where {T<: local_circuit_interneuron})
     return rect_linear(c_I*input_current + r0)
 end
 
+
+
 function update_firing!(n::neuron)
     # update firing rates following Euler law
     push!(n.r , n.r[end] + n.dt/n.τ*(-n.r[end] + current_to_frequency!(n)))
@@ -307,8 +188,13 @@ end
 
 
 function synapse_derivative(s::ampa_syn)
-
-    return -s.s[end]/s.τ + s.γ*s.neuron_pre.r[end]
+    if s.facilitation
+        push!(s.u,s.u[end])
+        s.u[end] += s.f_param.dt*((s.f_param.U - s.u[end])/s.f_param.τ + s.f_param.U*(1.0 - s.u[end])*s.neuron_pre.r[end])
+        return -s.s[end]/s.τ + s.γ*s.mult*s.u[end]*s.neuron_pre.r[end]
+    else
+        return -s.s[end]/s.τ + s.γ*s.neuron_pre.r[end]
+    end
 
 end
 
@@ -321,8 +207,13 @@ end
 
 
 function synapse_derivative(s::nmda_syn)
-
-    return -s.s[end]/s.τ + s.γ*(1.0 - s.s[end])*s.neuron_pre.r[end]
+    if s.facilitation
+        push!(s.u,copy(s.u[end]))
+        s.u[end] += s.f_param.dt*((s.f_param.U - s.u[end])/s.f_param.τ + s.f_param.U*(1.0 - s.u[end])*s.neuron_pre.r[end])
+        return -s.s[end]/s.τ + s.γ*(1.0 - s.s[end])*s.u[end]*s.mult*s.neuron_pre.r[end]
+    else
+        return -s.s[end]/s.τ + s.γ*(1.0 - s.s[end])*s.neuron_pre.r[end]
+    end
 
 end
 
@@ -351,6 +242,21 @@ function update_dend!(d::dend_Sean2020)
     dendrite_input_output!(d)
 end
 
+function update_dend!(d::dend_sigmoid)
+    current_synapses!(d)
+    update_process!(d.OU_process)
+    d.Iexc[end] += d.Inoise[end] + d.Istim + d.Ibg
+    push!(d.Itot, d.Iexc[end] + d.Iinh[end])
+    dendrite_input_output!(d)
+end
+
+
+function update_adaptation!(n::neuron)
+    adapt = n.adaptation
+    push!(adapt.sA, copy(adapt.sA[end]))
+    adapt.sA[end] += n.dt*(-adapt.sA[end]/adapt.τA + n.r[end])
+
+end
 
 
 end
@@ -374,7 +280,7 @@ function current_to_frequency!(n::wong_wang_cell)
     # taken from Abott and Chance
     temp = n.a * n.Itot[end] - n.b
     push!(n.r , temp / (1.0 - exp(-n.d * temp)))
-    end
+end
     
     
 function update_s!(network::wong_wang_network,simu::simulation_parameters)
@@ -451,13 +357,26 @@ using ..attractor_network_functions
 using ...BasicFunctions
 
 
-export time_step
+export time_step, full_time_dynamics
 
 function OU_process(n::neuron)
     update_process!(n.OU_process)
 end
 
+### TODO: change the funciton to update the variable s of the synapses
+
 function time_step(c::microcircuit,sim::simulation_parameters)
+
+    for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
+        for n in pop
+            for s in n.list_syn
+                temp = copy(s.s[end])
+              push!(s.s , temp + s.dt * synapse_derivative(s))
+            end
+        end
+
+    end
+
 
     #update dend
     update_dend!.(c.list_dend)
@@ -467,55 +386,88 @@ function time_step(c::microcircuit,sim::simulation_parameters)
     current_synapses!.(c.list_vip)
     current_synapses!.(c.list_sst)
     current_synapses!.(c.list_pv)
+    current_synapses!.(c.list_integrator)
     OU_process.(c.list_soma)
     OU_process.(c.list_sst)
     OU_process.(c.list_vip)
     OU_process.(c.list_pv)
+    OU_process.(c.list_integrator)
+
     current_to_frequency!.(c.list_soma)
     current_to_frequency!.(c.list_sst)
     current_to_frequency!.(c.list_vip)
     current_to_frequency!.(c.list_pv)
+    current_to_frequency!.(c.list_integrator)
 
 
-    sum_input.(c.list_soma)
-    sum_input.(c.list_sst)
-    sum_input.(c.list_vip)
-    sum_input.(c.list_pv)
+    sum_input!.(c.list_soma)
+    sum_input!.(c.list_sst)
+    sum_input!.(c.list_vip)
+    sum_input!.(c.list_pv)
+    sum_input!.(c.list_integrator)
 
 
     update_firing!.(c.list_soma)
     update_firing!.(c.list_vip)
     update_firing!.(c.list_sst)
     update_firing!.(c.list_pv)
+    update_firing!.(c.list_integrator)
 
     for nn in c.nn
       #  for n in nn.list_units
        #     current_synapses!(n)
         
         #end
-    update_s!(nn,sim)
+      update_s!(nn,sim)
     end
-for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma]
-    for n in pop
-        for s in n.list_syn
-        push!(s.s , s.s[end]+ s.dt * synapse_derivative(s))
-        end
-    end
+   
+    for nn in c.nn
+        for n in nn.list_units
+            for s in n.list_syn
 
-end
-
-for nn in c.nn
-    for n in nn.list_units
-        for s in n.list_syn
-
-            push!(s.s , s.s[end]+ s.dt * synapse_derivative(s))
+                push!(s.s , s.s[end]+ s.dt * synapse_derivative(s))
             
+            end
         end
-    end
    # update_s!(nn,sim)
-end
+    end
 end
 
+
+function full_time_dynamics(c::microcircuit, sim::simulation_parameters)
+    # TODO: to write better. compute the whole time dynamics of the microcuit
+    list_time = 0.0:sim.dt:sim.Tfin
+    list_stim = zeros(length(list_time))
+    temp_t = 0.0
+    for i=1:length(list_stim)-1
+        temp_t +=sim.dt
+
+        if temp_t>sim.Tstimduration && i>sim.Tstimdebut/sim.dt
+            if list_stim[i] == 0.0
+                list_stim[i] = 0.2
+            else
+                list_stim[i] = 0.0
+            end
+            temp_t = 0.0
+
+        end
+        list_stim[i+1] = list_stim[i]
+    end
+
+
+    for (index,t) in enumerate(list_time[2:end])
+       
+        c.list_soma[1].Istim = sim.Stimulus[index] #nA
+        time_step(c,sim)
+    end
+    # TODO: do a nice return function for this dynamics
+
+end
+
+
+# TODO
+
+# TODO
 
     
 end
