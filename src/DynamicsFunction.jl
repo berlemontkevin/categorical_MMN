@@ -192,6 +192,10 @@ function synapse_derivative(s::ampa_syn)
         push!(s.u,s.u[end])
         s.u[end] += s.f_param.dt*((s.f_param.U - s.u[end])/s.f_param.τ + s.f_param.U*(1.0 - s.u[end])*s.neuron_pre.r[end])
         return -s.s[end]/s.τ + s.γ*s.mult*s.u[end]*s.neuron_pre.r[end]
+    elseif s.depression
+        push!(s.d,s.d[end])
+        s.d[end] += s.f_param.dt*((1.0 - s.d[end])/s.f_param.τ - s.d[end]*(1.0 - s.d_param.fD)*s.neuron_pre.r[end])
+        return -s.s[end]/s.τ + s.γ*s.mult*s.d[end]*s.neuron_pre.r[end]
     else
         return -s.s[end]/s.τ + s.γ*s.neuron_pre.r[end]
     end
@@ -211,13 +215,39 @@ function synapse_derivative(s::nmda_syn)
         push!(s.u,copy(s.u[end]))
         s.u[end] += s.f_param.dt*((s.f_param.U - s.u[end])/s.f_param.τ + s.f_param.U*(1.0 - s.u[end])*s.neuron_pre.r[end])
         return -s.s[end]/s.τ + s.γ*(1.0 - s.s[end])*s.u[end]*s.mult*s.neuron_pre.r[end]
+    elseif s.depression
+        push!(s.d,s.d[end])
+        s.d[end] += s.f_param.dt*((1.0 - s.d[end])/s.f_param.τ - s.d[end]*(1.0 - s.d_param.fD)*s.neuron_pre.r[end])
+        return -s.s[end]/s.τ + s.γ*s.mult*s.d[end]*s.neuron_pre.r[end]
     else
         return -s.s[end]/s.τ + s.γ*(1.0 - s.s[end])*s.neuron_pre.r[end]
     end
 
 end
 
-function current_synapses!(n::neuron)
+function current_synapses!(ln::Vector{N} where N <: neuron,d::Dict{String, Vector{Float64}},index::Int64)
+    #compute the sum of syn currents
+    # separe in two the currents (due to the dendrites)
+for n in ln
+
+    push!(n.Iexc , 0.0)
+    push!(n.Iinh , 0.0)
+
+    for s in n.list_syn
+        if s.g <0.0
+            n.Iinh[end] += s.g * s.s[end]
+        else
+            n.Iexc[end] += s.g * s.s[end]
+        end
+    end
+
+  
+    n.Istim = d[n.name][index]
+end
+
+
+end
+function current_synapses!(n::dend_sigmoid)
     #compute the sum of syn currents
     # separe in two the currents (due to the dendrites)
 
@@ -433,6 +463,75 @@ function time_step(c::microcircuit,sim::simulation_parameters)
     end
 end
 
+function time_step(l_c::Vector{microcircuit},sim::simulation_parameters, d::Dict{String, Vector{Float64}},index::Int64)
+
+    for c in l_c
+    for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
+        for n in pop
+            for s in n.list_syn
+                temp = copy(s.s[end])
+              push!(s.s , temp + s.dt * synapse_derivative(s))
+            end
+        end
+
+    end
+
+
+    #update dend
+    update_dend!.(c.list_dend)
+
+    #update neurons
+    current_synapses!(c.list_soma,d,index)
+    current_synapses!(c.list_vip,d,index)
+    current_synapses!(c.list_sst,d,index)
+    current_synapses!(c.list_pv,d,index)
+    current_synapses!(c.list_integrator,d,index)
+    OU_process.(c.list_soma)
+    OU_process.(c.list_sst)
+    OU_process.(c.list_vip)
+    OU_process.(c.list_pv)
+    OU_process.(c.list_integrator)
+
+    current_to_frequency!.(c.list_soma)
+    current_to_frequency!.(c.list_sst)
+    current_to_frequency!.(c.list_vip)
+    current_to_frequency!.(c.list_pv)
+    current_to_frequency!.(c.list_integrator)
+
+
+    sum_input!.(c.list_soma)
+    sum_input!.(c.list_sst)
+    sum_input!.(c.list_vip)
+    sum_input!.(c.list_pv)
+    sum_input!.(c.list_integrator)
+
+
+    update_firing!.(c.list_soma)
+    update_firing!.(c.list_vip)
+    update_firing!.(c.list_sst)
+    update_firing!.(c.list_pv)
+    update_firing!.(c.list_integrator)
+
+    for nn in c.nn
+      #  for n in nn.list_units
+       #     current_synapses!(n)
+        
+        #end
+      update_s!(nn,sim)
+    end
+   
+    for nn in c.nn
+        for n in nn.list_units
+            for s in n.list_syn
+
+                push!(s.s , s.s[end]+ s.dt * synapse_derivative(s))
+            
+            end
+        end
+   # update_s!(nn,sim)
+    end
+end
+end
 
 function full_time_dynamics(c::microcircuit, sim::simulation_parameters)
     # TODO: to write better. compute the whole time dynamics of the microcuit
@@ -464,6 +563,19 @@ function full_time_dynamics(c::microcircuit, sim::simulation_parameters)
 
 end
 
+
+function full_time_dynamics(l_c::Vector{microcircuit}, sim::simulation_parameters, d::Dict{String, Vector{Float64}})
+    # TODO: to write better. compute the whole time dynamics of the microcuit
+    list_time = 0.0:sim.dt:sim.Tfin
+   
+ # TODO a dictionnary of stimlus that can be access through the names of the neurons
+
+    for (index,t) in enumerate(list_time[2:end])
+        time_step(l_c,sim,d,index)
+    end
+    # TODO: do a nice return function for this dynamics
+
+end
 
 # TODO
 

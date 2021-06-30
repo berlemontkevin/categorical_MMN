@@ -23,7 +23,8 @@ begin
 	using Plots
 	plotlyjs()
 	using MyNeurosciencePackage
-	
+	using PlutoUI
+
 end
 
 # ╔═╡ a83fc540-ac1e-11eb-026a-698bbfe91259
@@ -32,82 +33,6 @@ begin
 	quickactivate("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN","1-project-categorical-MMN")
 	
 end
-
-# ╔═╡ 92a20122-737d-4050-ac75-47219d611ee6
-begin
-	using PlutoUI
-	@bind stim_current Slider(0.0001:0.1:1.0)
-end
-
-# ╔═╡ 45a55b69-e856-4663-9631-6e916ff656d9
-
-
-# ╔═╡ 463f0ee2-8a46-4d7d-9da1-b267654598f6
-dend_param = dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.15624, 0.0)
-
-# ╔═╡ d62ac590-c7c4-40fa-83f4-8d9dd8e79b45
-dend = dend_sigmoid(param_c = dend_param)
-
-# ╔═╡ 13bbb829-14e6-4750-8b2d-d67c19719d84
-md""" # Example of a dendritic synapse
-
-
-"""
-
-# ╔═╡ a9a4daba-1d46-4414-b7d5-845657e3e7b4
-begin
-	
-	soma = soma_PC(den = dend)
-	dend.Iinh[end] = -0.8
-	update_dend!(dend)
-	
-	
-end
-
-# ╔═╡ 2988f99e-6daf-4585-b746-3d045237eb55
-begin
-
-	sum_input!(soma)
-	update_firing!(soma)
-	
-end
-
-# ╔═╡ 470d2d4f-d780-4f96-8c3f-aa7cb4cc1748
-dend
-
-# ╔═╡ 6fa7c0d1-d07f-4833-bfe8-31eb267cfe28
-
-
-# ╔═╡ 760a7129-21e7-48cd-a08d-d165f3675a49
-
-
-# ╔═╡ ac3d412b-10f7-4aa9-be99-90c0f81454da
-md""" # Simple integrator neuron
-
-
-"""
-
-# ╔═╡ 21d23481-35b4-4c74-96c6-0a938a885c74
-begin
-	
-	integrator = neural_integrator(α=0.1)
-	
-	for i=1:100
-		integrator.Iexc[end] = 0.3
-		sum_input!(integrator)
-		update_firing!(integrator)
-	end
-	
-	
-	
-	
-end
-
-# ╔═╡ 6dd247a0-2002-4238-9c1f-c1161a11d4c4
-plot(0.0:integrator.τ:100*integrator.τ,integrator.r)
-
-# ╔═╡ 4e1c06e1-3109-4b85-85ed-ccd25d87c6aa
-plot(integrator.Itot)
 
 # ╔═╡ 9f391c16-04c7-4a3c-b9f7-0d12f6bc48e0
 md""" # All the synapses equations
@@ -171,6 +96,66 @@ begin
 	
 end
 
+# ╔═╡ 92a20122-737d-4050-ac75-47219d611ee6
+md""" Value of the current sent to the soma:
+
+0.1 to 1.0 $@bind stim_current Slider(0.1:0.1:1.0, default = 0.5) 
+
+"""
+
+
+# ╔═╡ 62256341-cfe2-455c-97df-d5e174e58347
+md""" Value of the time constant of adaptation and facilitation:
+
+0.1 to 2.0 $@bind τ Slider(0.1:0.1:2.0, default = 0.5)
+
+
+"""
+
+# ╔═╡ de41db49-4c77-479c-85e4-5a830c3c0a70
+md""" Value of the inter stimulus interval:
+
+0.1 to 1.0 $@bind T_inter Slider(0.1:0.2:1.0, default = 0.5)
+
+
+"""
+
+# ╔═╡ df760430-5d76-43fa-90ba-cafb32638321
+md"""
+The chosen parameters are:
+
+stim-current = $stim_current
+
+``\tau`` = $τ
+
+Tinter = $T_inter
+
+
+
+"""
+
+# ╔═╡ b213aced-a8a5-4f0a-b8fb-944b58042180
+md""" ### Constant current to the network
+
+"""
+
+# ╔═╡ 9254d341-8763-47ee-90b3-5f1bbb015395
+md""" ## Alternating current to the soma
+
+
+"""
+
+# ╔═╡ 3707a172-d950-46f0-8bae-5b6d0f262166
+md""" ## Analyze of alternating currents
+
+$@bind value_duration NumberField(0:0.08, default=0.02)
+
+
+let's look at the variation of the $value_duration 
+s duration peak through time.
+
+"""
+
 # ╔═╡ 6e2684ca-6061-471c-9a74-5b55a8224911
 begin
 	# plotting function
@@ -183,25 +168,27 @@ begin
 		Integrator = c.list_integrator[1]
 		Dend = c.list_dend[1]
 		liste_time = 0.0:sim.dt:sim.Tfin
-		temp =Integrator.list_syn[1].s[end]
-		fig = plot()
-		plot!(fig,liste_time,PC.r,label="PC")
-		plot!(fig,liste_time,PV.r,label="PV")
-		plot!(fig,liste_time,SST.r,label="SST")
-		plot!(fig,liste_time,VIP.r,label="VIP")
-		plot!(fig,liste_time, Integrator.r, label="integrator $temp")
+		
+		fig = plot(linewidth=2)
+		plot!(fig,liste_time,PC.r,label="PC", lw =2)
+		plot!(fig,liste_time,PV.r,label="PV", lw =2)
+		plot!(fig,liste_time,SST.r,label="SST", lw =2)
+		plot!(fig,liste_time,VIP.r,label="VIP", lw =2)
+		plot!(fig,liste_time, Integrator.r, label="integrator", lw =2)
 		title!(fig,title)
+		xlabel!("Time (s)")
+		ylabel!("Firing rate (Hz)")
 		return fig
 	end
 	
 	
-	function make_dynamics(keywords::Array{String},sim::simulation_parameters;facilitation = false)
+	function make_dynamics(keywords::Array{String},sim::simulation_parameters;facilitation = false,stim=stim_current)
 		#todo replace keywords by something nicer
 		if keywords[2] == "constant"
-			constant_stimulus(sim,stim_current)
+			constant_stimulus(sim,stim)
 
 		elseif keywords[2] == "alternating"
-				alternating_stimulus(sim,stim_current)
+				alternating_stimulus(sim,stim)
 
 		else
 			warn("Don't forget to add a type of input to your neuron. Keywords[2]")
@@ -215,86 +202,132 @@ begin
 	end
 	
 	
+	
+	function analyze_alternating(network::microcircuit,sim::simulation_parameters)
+		list_values = []
+		PC=network.list_soma[1]
+		dt = sim.dt
+		stimd = sim.Tstimduration
+		temp_dt = sim.Tstimduration + value_duration
+		while temp_dt <= sim.Tfin
+			push!(list_values, PC.r[Int(round(temp_dt/dt))])
+			temp_dt+=2.0*sim.Tstimduration
+		end
+		
+		return list_values
+	end
+	
+	
+	using LsqFit
+	
+	model_sig(x, p) = p[1].*sigmoid.(-(x.-p[4])./p[2]) .+ p[3]#p[1].*exp.(-x./p[2]) .+ p[3]
+model_exp(x, p) = p[1].*exp.(-(x)./p[2]) .+ p[3]#p[1].*exp.(-x./p[2]) .+ p[3]
+
+function get_param_fit(c::microcircuit, sim::simulation_parameters,model)
+    lb = [1e-9,0.1,1.0,1e-9]
+    #lb = [0.0,0.0,0.0,0.0]
+       values_fit = analyze_alternating(c,sim)
+    ub = [2.0*maximum(values_fit),6.0,maximum(values_fit),30.0]
+    p0 = [0.5*maximum(values_fit),0.5,0.5*maximum(values_fit),1]
+
+       xdata_stim = 1.5*sim.Tstimduration:2.0*sim.Tstimduration:sim.Tfin
+    fit = curve_fit(model, xdata_stim, values_fit, p0, lower = lb, upper = ub)
+
+		return xdata_stim, fit.param,values_fit,maximum(values_fit)
 end
 
-# ╔═╡ d6d45f7c-5da9-4c09-841e-b6185e5f40de
-0.12/0.005/2.0
+
+	
+	
+end
 
 # ╔═╡ 45b87a22-dacf-432b-b631-6267066a76c2
 begin
 	
-	simulation_param = simulation_parameters()
+ 	simulation_param_constant = simulation_parameters()
 	
-	circuit_integrator = make_dynamics(["integrator","constant"],simulation_param)#create_network("integrator")
+ 	circuit_integrator = make_dynamics(["integrator","constant"],simulation_param_constant)
+	
+ 	circuit_integrator_facilitation = make_dynamics(["integrator","constant"],simulation_param_constant; facilitation = true)
 	
 	
-	#constant_stimulus(simulation_param,stim_current)
-	
-	#circuit = create_network()
 
-	#full_time_dynamics(circuit_integrator, simulation_param)
+d_adapt=Dict("facilitation" => false,
+"adaptation" => true,
+            "stimlist" =>stim_current,
+                "τ" => τ,
+                "Tinterstim" => T_inter
+                )
+temp_load=    wload(datadir("simulations","notebook-3", savename(d_adapt, "jld2")))
+circuit_adapt = temp_load["circuit"]
+simulation_param = temp_load["simulation_param"]
+
+
+d_control=Dict("facilitation" => false,
+"adaptation" => false,
+            "stimlist" =>stim_current,
+                "τ" => τ,
+                "Tinterstim" => T_inter
+                )
+temp_load_control=    wload(datadir("simulations","notebook-3", savename(d_control, "jld2")))
+circuit_control = temp_load_control["circuit"]
 	
-	#full_time_dynamics(circuit, simulation_param)
+d_facilitation=Dict("facilitation" => true,
+"adaptation" => false,
+            "stimlist" =>stim_current,
+                "τ" => τ,
+                "Tinterstim" => T_inter
+                )
+temp_load_facilitation=    wload(datadir("simulations","notebook-3", savename(d_facilitation, "jld2")))
+circuit_facilitation = temp_load_facilitation["circuit"]
+
+	
+	
+	
 	
 	
 end
 
-# ╔═╡ e0b1d724-9f81-49ab-a559-1df99ad0bd18
-plot(circuit_integrator.list_dend[1].list_syn[1].s)
-
-# ╔═╡ f2fcfd9f-232d-4e9a-8057-a6d751dd7bf1
-plot(circuit_integrator.list_vip[1].list_syn[2].s)
-
-# ╔═╡ 8774e37d-1177-41f7-a171-82e1ef775f5c
-plot(circuit_integrator.list_dend[1].Iinh)
-
-# ╔═╡ d2673b6f-1d68-4216-bead-0222a655fbed
+# ╔═╡ ba159d20-f0f7-4068-9a5b-24d1102d05a5
 fig_constant_wt_adaptation = plot_circuit(circuit_integrator,simulation_param, title ="Constant stim and without facilitation")
-
-# ╔═╡ 43aafa43-43e7-4ca7-ab6a-14104ed10a30
-begin
-	
-	
-	circuit_integrator_facilitation = make_dynamics(["integrator","constant"],simulation_param; facilitation = true)
-	
-
-	
-	
-end
 
 # ╔═╡ 80e3502e-e5ee-402d-9f6b-56836c3653a2
 fig_constant_with_facilitation = plot_circuit(circuit_integrator_facilitation,simulation_param, title ="Constant stim and with facilitation")
 
-# ╔═╡ a24b91f3-9d8b-4c13-a7ef-c6ab1aef698e
-md"""
-Study of a non constant stimulus on the network
-"""
+# ╔═╡ d8d2c7c2-5771-48f3-8127-28a708705bb9
+begin
+	circuit_integrator_constant_adaptation = create_network("integrator",facilitation=false,adaptation = true)
+		
+	circuit_integrator_constant_adaptation.list_soma[1].adaptation.gA = -0.01
+	circuit_integrator_constant_adaptation.list_soma[1].adaptation.τA = τ
+
+	
+	constant_stimulus(simulation_param_constant,stim_current)
+
+	full_time_dynamics(circuit_integrator_constant_adaptation, simulation_param_constant)
+	
+	fig_constant_with_adaptation = plot_circuit(circuit_integrator_constant_adaptation,simulation_param_constant, title ="constant stim and with adaptation")
+end
 
 # ╔═╡ 3229a7c2-0d3b-4d5f-a991-5aff5a9b77c8
-begin
-	circuit_integrator_alternating = make_dynamics(["integrator","alternating"],simulation_param)
-		
-	fig_alternating_wt_adaptation = plot_circuit(circuit_integrator_alternating,simulation_param, title ="Alternating stim and without facilitation")
-end
+fig_alternating_wt_adaptation = 	plot_circuit(circuit_control,simulation_param, title ="Alternating stim and without facilitation")
+
 
 # ╔═╡ 2d407f57-c901-4f07-812e-2d6e5c7d035c
-begin
-	circuit_integrator_alternating_facilitation = make_dynamics(["integrator","alternating"],simulation_param; facilitation = true)
-		
-	fig_alternating_with_facilitation = plot_circuit(circuit_integrator_alternating_facilitation,simulation_param, title ="Alternating stim and with facilitation")
-end
+	fig_alternating_with_facilitation = plot_circuit(circuit_facilitation,simulation_param, title ="Alternating stim and with facilitation")
 
-# ╔═╡ 5bc03f96-b5b8-40bd-9537-e7c3cfec4d11
-md""" # Adaptation of pyramidal cells
 
-"""
+# ╔═╡ 6b82843b-1ad6-4e52-b44c-c3bfc3074d11
+	fig_alternating_adaptation = plot_circuit(circuit_adapt,simulation_param, title ="Alternating stim and with adaptation")
 
 # ╔═╡ 90904108-a34d-450a-8ae6-6f1eeaf75b32
 begin
-	circuit_integrator_alternating_adaptation = create_network("integrator",facilitation=false,adaptation = true)
+	function plot_adaptation_alternating(τA::Float64)
+		
+		circuit_integrator_alternating_adaptation = create_network("integrator",facilitation=false,adaptation = true)
 		
 	circuit_integrator_alternating_adaptation.list_soma[1].adaptation.gA = -0.01
-	circuit_integrator_alternating_adaptation.list_soma[1].adaptation.τA = 0.1
+	circuit_integrator_alternating_adaptation.list_soma[1].adaptation.τA = τA
 
 	
 	alternating_stimulus(simulation_param,0.4)
@@ -302,75 +335,142 @@ begin
 	full_time_dynamics(circuit_integrator_alternating_adaptation, simulation_param)
 	
 	fig_alternating_with_adaptation = plot_circuit(circuit_integrator_alternating_adaptation,simulation_param, title ="Alternating stim and with adaptation")
+	return fig_alternating_with_adaptation
+	end
 end
 
-# ╔═╡ 7397c618-5651-4799-a06a-028c144ba068
-plot(0.0:simulation_param.dt:simulation_param.Tfin,circuit_integrator_alternating_adaptation.list_soma[1].adaptation.sA)
-
-# ╔═╡ d8d2c7c2-5771-48f3-8127-28a708705bb9
+# ╔═╡ 71ac3678-66d6-4f8c-ae0c-6f5792000352
 begin
-	circuit_integrator_constant_adaptation = create_network("integrator",facilitation=false,adaptation = true)
-		
-	circuit_integrator_constant_adaptation.list_soma[1].adaptation.gA = -0.01
-		circuit_integrator_constant_adaptation.list_soma[1].adaptation.τA = 1.0
-
+	values_facilitation = analyze_alternating(circuit_facilitation,simulation_param)
 	
-	constant_stimulus(simulation_param,0.2)
-
-	full_time_dynamics(circuit_integrator_constant_adaptation, simulation_param)
+	values_wtfacilitation = analyze_alternating(circuit_control,simulation_param)
 	
-	fig_constant_with_adaptation = plot_circuit(circuit_integrator_constant_adaptation,simulation_param, title ="constant stim and with adaptation")
+		values_adaptation = analyze_alternating(circuit_adapt,simulation_param)
+	
+	
+	scatter(values_facilitation,color=:green,label="Facilitation")
+	scatter!(values_wtfacilitation,color=:blue,label="Control")
+	scatter!(values_adaptation,color = :red,label="adaptation")
+	xlabel!("Number of peaks")
+	ylabel!("Firing rate")
 end
 
-# ╔═╡ f4555ff6-6b0b-40c4-a313-8f4da70eafab
-plot(0.0:simulation_param.dt:simulation_param.Tfin,circuit_integrator_constant_adaptation.list_soma[1].adaptation.sA)
+# ╔═╡ 1963ddc5-8a3d-4fe4-89fa-51497afdd24c
+md"""
+Let's fit control and adaptation curve by a sigmoid. For the adaptation case it can be done but not for all parameters due to the look of the dynamics.
 
-# ╔═╡ e4bce060-6041-4e79-b75b-26826d8f11f8
-plot(0.0:simulation_param.dt:simulation_param.Tfin,circuit_integrator_alternating_adaptation.list_soma[1].adaptation.sA)
 
-# ╔═╡ 2bce631a-c71f-457d-ac33-180b7cf5aefa
-plot(circuit_integrator_alternating_adaptation.list_soma[1].OU_process.noise)
+`` f(x) = p1 * sigmoid(-(x-p_2)/p_4) + p_3 ``
 
-# ╔═╡ 41aca281-92f6-4025-bf40-93e076196b2a
-plot(circuit_integrator_alternating_adaptation.list_soma[1].Itot)
+"""
+
+# ╔═╡ ef413bdf-bc21-4b02-b9f2-f4eda91288a6
+begin
+	
+	
+d_adapt_fast=Dict("facilitation" => false,
+"adaptation" => true,
+            "stimlist" =>0.5,
+                "τ" => 0.1,
+                "Tinterstim" => 0.5
+                )
+temp_load_fast=    wload(datadir("simulations","notebook-3", savename(d_adapt_fast, "jld2")))
+circuit_adapt_fast = temp_load_fast["circuit"]
+simulation_param_fast = temp_load_fast["simulation_param"]
+
+	
+	
+d_control_fast=Dict("facilitation" => false,
+"adaptation" => false,
+            "stimlist" =>0.5,
+                "τ" => 0.1,
+                "Tinterstim" => 0.5
+                )
+temp_control_fast=    wload(datadir("simulations","notebook-3", savename(d_control_fast, "jld2")))
+circuit_control_fast = temp_control_fast["circuit"]
+	
+	
+d_f_fast=Dict("facilitation" => true,
+"adaptation" => false,
+            "stimlist" =>0.5,
+                "τ" => 1.5,
+                "Tinterstim" => 0.5
+                )
+temp_f_fast=    wload(datadir("simulations","notebook-3", savename(d_f_fast, "jld2")))
+circuit_f_fast = temp_f_fast["circuit"]
+	
+	values_facilitation_fast = analyze_alternating(circuit_f_fast,simulation_param_fast)
+	
+	values_wtfacilitation_fast = analyze_alternating(circuit_control_fast,simulation_param_fast)
+	
+	values_adaptation_fast = analyze_alternating(circuit_adapt_fast,simulation_param_fast)
+	
+	
+	scatter(values_facilitation_fast,color=:green,label="Facilitation")
+	scatter!(values_wtfacilitation_fast,color=:blue,label="Control")
+	scatter!(values_adaptation_fast,color = :red,label="adaptation")
+	xlabel!("Number of peaks")
+	ylabel!("Firing rate")
+	
+	
+    xdata_stim, fit_param,m,n = get_param_fit(circuit_f_fast,simulation_param_fast,model_sig) 
+	plot!(xdata_stim,model_sig(xdata_stim,fit_param),color=:green,linewidth=2)
+	
+	
+    xdata_stim, fit_param_adapt,ma,na = get_param_fit(circuit_adapt_fast,simulation_param_fast,model_sig) 
+	plot!(xdata_stim,model_sig(xdata_stim,fit_param_adapt),color=:red,linewidth=2)
+	
+	
+    xdata_stim, fit_param_control,mc,nc = get_param_fit(circuit_control_fast,simulation_param_fast,model_sig) 
+	plot!(xdata_stim,model_sig(xdata_stim,fit_param_control),color=:blue,linewidth=2)
+end
+
+# ╔═╡ ba0d669c-1acc-4866-823f-d075fb7f52bb
+md"""
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p1-p3-fixedstim-facilitation.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p1-p3-fixedstim-control.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p2-fixedstim-facilitation.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p2-fixedstim-control.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p4-fixedstim-facilitation.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p4-fixedstim-control.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p1-p3-fixedTinter-facilitation.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p1-p3-fixedTinter-control.png"))
+
+$(LocalResource("C:\\Users\\kevin\\Documents\\MyDocuments\\3-NYU\\1-project-categorical-MMN\\plots\\3-adaptation\\fig-p1-p3-fixedtau-fixedTinter.png"))
+
+
+"""
 
 # ╔═╡ Cell order:
-# ╠═a83fc540-ac1e-11eb-026a-698bbfe91259
 # ╠═9f89ae64-8d89-4e7d-9f21-b19bb731116d
-# ╠═45a55b69-e856-4663-9631-6e916ff656d9
-# ╠═463f0ee2-8a46-4d7d-9da1-b267654598f6
-# ╠═d62ac590-c7c4-40fa-83f4-8d9dd8e79b45
-# ╠═13bbb829-14e6-4750-8b2d-d67c19719d84
-# ╠═a9a4daba-1d46-4414-b7d5-845657e3e7b4
-# ╠═2988f99e-6daf-4585-b746-3d045237eb55
-# ╠═470d2d4f-d780-4f96-8c3f-aa7cb4cc1748
-# ╠═6fa7c0d1-d07f-4833-bfe8-31eb267cfe28
-# ╠═760a7129-21e7-48cd-a08d-d165f3675a49
-# ╠═ac3d412b-10f7-4aa9-be99-90c0f81454da
-# ╠═21d23481-35b4-4c74-96c6-0a938a885c74
-# ╠═6dd247a0-2002-4238-9c1f-c1161a11d4c4
-# ╠═4e1c06e1-3109-4b85-85ed-ccd25d87c6aa
-# ╠═9f391c16-04c7-4a3c-b9f7-0d12f6bc48e0
-# ╠═4542719f-3737-4339-bfe7-6e3c0300fc79
-# ╠═105ddeef-202b-45e9-bc4c-dd8890398012
-# ╠═6e2684ca-6061-471c-9a74-5b55a8224911
-# ╠═92a20122-737d-4050-ac75-47219d611ee6
-# ╠═e0b1d724-9f81-49ab-a559-1df99ad0bd18
-# ╠═f2fcfd9f-232d-4e9a-8057-a6d751dd7bf1
-# ╠═8774e37d-1177-41f7-a171-82e1ef775f5c
-# ╠═d6d45f7c-5da9-4c09-841e-b6185e5f40de
-# ╠═45b87a22-dacf-432b-b631-6267066a76c2
-# ╠═d2673b6f-1d68-4216-bead-0222a655fbed
-# ╠═43aafa43-43e7-4ca7-ab6a-14104ed10a30
-# ╠═80e3502e-e5ee-402d-9f6b-56836c3653a2
-# ╠═a24b91f3-9d8b-4c13-a7ef-c6ab1aef698e
-# ╠═3229a7c2-0d3b-4d5f-a991-5aff5a9b77c8
-# ╠═2d407f57-c901-4f07-812e-2d6e5c7d035c
-# ╠═5bc03f96-b5b8-40bd-9537-e7c3cfec4d11
-# ╠═90904108-a34d-450a-8ae6-6f1eeaf75b32
-# ╠═7397c618-5651-4799-a06a-028c144ba068
-# ╠═d8d2c7c2-5771-48f3-8127-28a708705bb9
-# ╠═f4555ff6-6b0b-40c4-a313-8f4da70eafab
-# ╠═e4bce060-6041-4e79-b75b-26826d8f11f8
-# ╠═2bce631a-c71f-457d-ac33-180b7cf5aefa
-# ╠═41aca281-92f6-4025-bf40-93e076196b2a
+# ╠═a83fc540-ac1e-11eb-026a-698bbfe91259
+# ╟─9f391c16-04c7-4a3c-b9f7-0d12f6bc48e0
+# ╟─4542719f-3737-4339-bfe7-6e3c0300fc79
+# ╟─105ddeef-202b-45e9-bc4c-dd8890398012
+# ╟─6e2684ca-6061-471c-9a74-5b55a8224911
+# ╟─92a20122-737d-4050-ac75-47219d611ee6
+# ╟─62256341-cfe2-455c-97df-d5e174e58347
+# ╟─de41db49-4c77-479c-85e4-5a830c3c0a70
+# ╟─df760430-5d76-43fa-90ba-cafb32638321
+# ╟─b213aced-a8a5-4f0a-b8fb-944b58042180
+# ╟─ba159d20-f0f7-4068-9a5b-24d1102d05a5
+# ╟─80e3502e-e5ee-402d-9f6b-56836c3653a2
+# ╟─d8d2c7c2-5771-48f3-8127-28a708705bb9
+# ╟─45b87a22-dacf-432b-b631-6267066a76c2
+# ╟─9254d341-8763-47ee-90b3-5f1bbb015395
+# ╟─3229a7c2-0d3b-4d5f-a991-5aff5a9b77c8
+# ╟─2d407f57-c901-4f07-812e-2d6e5c7d035c
+# ╟─6b82843b-1ad6-4e52-b44c-c3bfc3074d11
+# ╟─90904108-a34d-450a-8ae6-6f1eeaf75b32
+# ╟─3707a172-d950-46f0-8bae-5b6d0f262166
+# ╟─71ac3678-66d6-4f8c-ae0c-6f5792000352
+# ╟─1963ddc5-8a3d-4fe4-89fa-51497afdd24c
+# ╟─ef413bdf-bc21-4b02-b9f2-f4eda91288a6
+# ╠═ba0d669c-1acc-4866-823f-d075fb7f52bb

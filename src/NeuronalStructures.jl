@@ -5,6 +5,9 @@ export simulation_parameters
 
 export dendrites_param_sigmoid, dend_sigmoid, soma_PC
 export neural_integrator, microcircuit
+export get_dynamics,save_dynamics
+export vip_cell, pv_cell, sst_cell
+export gaba_syn, ampa_syn, nmda_syn
 
 ##############################################################################################################
 # Abstract types
@@ -189,7 +192,7 @@ export wong_wang_cell, neural_integrator
 end
 
  # will be in simulation parameters later for the time dt
-@with_kw struct neural_integrator <: neuron
+@with_kw mutable struct neural_integrator <: neuron
     τ::Float64 = 0.8 # test d'une cste de temps
     dt::Float64 = 0.0005
     α::Float64 = 0.8
@@ -205,7 +208,7 @@ end
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
     OU_process::OU_process = OU_process()
-    
+    name::String
 end
 
 end
@@ -241,6 +244,7 @@ struct neural_population
     type_neuron::String 
     list_neurons::Vector{neuron}
     type_global::String 
+    name::String
 end
 
 
@@ -271,7 +275,7 @@ end
     Tfin::Float64 = 20.0
     Tstimdebut::Float64 = 0.0
     Tstimfin::Float64 = 2.5    
-    Tstimduration::Float64=1.0
+    Tstimduration::Float64=0.5
     Stimulus::Array{Float64} = []
 
 
@@ -325,7 +329,7 @@ end
 @with_kw mutable struct adaptation_variables
     sA::Array{Float64} = [0.0]
     τA::Float64 = 0.1 #seconds as for facilitation
-    gA::Float64 = -0.5 # value to test
+    gA::Float64 = -0.1 # value to test 0.5
 end
 
 
@@ -353,7 +357,7 @@ end
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
-
+    name::String = "temp"
 end
 
 
@@ -380,7 +384,7 @@ end
     OU_process::OU_process = OU_process()
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = false # boolean of adaptation or not
-
+    name::String
 end
 
 @with_kw mutable struct soma_Sean2020 <: pyr_cell
@@ -398,7 +402,7 @@ end
     Iexc::Array{Float64} = [0.0]
     Iinh::Array{Float64} = [0.0]
     list_syn::Array{synapses} = []
-    Ibg::Float64 = 310.0 * 0.001
+    Ibg::Float64 = 330.0 * 0.001
     Itot::Array{Float64} = [0.0]
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
@@ -440,7 +444,11 @@ export pv_cell, sst_cell, vip_cell, gaba_syn, ampa_syn,nmda_syn, local_circuit_i
 abstract type excitatory_synapse <: synapses end
 abstract type local_circuit_interneuron <: interneuron end
 export microcircuit
+export save_dynamics, get_dynamics
     
+using DataFrames, DrWatson,CSV#,CSVFiles
+
+
 ## for now interneurons
 #TODO better choice of name (maybe having an abstract pv and so type): Note that everything is static for now (one layer)
 @with_kw mutable struct pv_cell <: local_circuit_interneuron
@@ -458,6 +466,7 @@ export microcircuit
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
+    name::String
 end
 
 
@@ -469,13 +478,14 @@ end
     Iexc::Array{Float64} = [0.0]
     Iinh::Array{Float64} = [0.0]
     list_syn::Array{synapses} = []
-    Ibg::Float64 = 0.200#300.0 * 0.001
+    Ibg::Float64 = 300.0 * 0.001
     Itot::Array{Float64} = [0.0]
     Inoise::Array{Float64} = [0.0]
     Istim::Float64 = 0.0
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
+    name::String
 end
 
 
@@ -494,6 +504,7 @@ end
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
+    name::String
 end
 
 
@@ -505,16 +516,21 @@ end
     g::Float64
     s::Array{Float64} = [0.0]
     dt::Float64 = 0.0005
-
+    name::String
 end
 
 
-@with_kw struct facilitation_parameters
+@with_kw mutable struct facilitation_parameters
     U::Float64 = 0.2
     τ::Float64 = 1.5 # secondes
     dt::Float64 = 0.0005
 end
 
+@with_kw mutable struct depression_parameters
+    fD::Float64 = 0.2
+    τ::Float64 = 0.5 # secondes
+    dt::Float64 = 0.0005
+end
 
 
 @with_kw mutable struct ampa_syn <: synapses
@@ -529,6 +545,10 @@ end
     u::Array{Float64}=[1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param = facilitation_parameters()
+    d_param = depression_parameters()
+    d::Array{Float64}=[1.0/2.5]
+    depression = false
+    name::String
 end
 
 @with_kw mutable struct nmda_syn <: synapses
@@ -543,6 +563,10 @@ end
     u::Array{Float64}=[1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param = facilitation_parameters()
+    d_param = depression_parameters()
+    d::Array{Float64}=[0.3]
+    depression = false
+    name::String
 
 end
 
@@ -556,6 +580,80 @@ end
     list_dend::Array{dendrite} = []
     nn::Array{wong_wang_network} = []
     list_integrator::Array{neural_integrator} = []
+    name::String = "microciruit"
+end
+
+
+
+
+function save_dynamics(c::microcircuit,notebook_file::String, save_parameters)
+    # funciton that save the dynamics of the network into a csv
+
+    df = DataFrame()
+
+    
+    for pop in [c.list_pv, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
+        for n in pop
+
+                df[!,string("r-",n.name)] = round.(n.r,digits=6)
+                df[!,string("Itot-",n.name)] = round.(n.Itot,digits=6)
+
+            for s in n.list_syn
+                df[!,string("s-",s.name)] = round.(s.s,digits=6)
+
+            end
+        end
+
+    end
+    for pop in [c.list_dend]
+        for n in pop
+            df[!,string("Ioutput-",n.name)] = round.(n.Ioutput, digits=6)
+
+           
+        end
+    end
+
+
+    wsave(datadir("simulations",notebook_file, savename(save_parameters, "csv")),df)
+
+
+
+end
+
+
+function get_dynamics(notebook_file::String, save_parameters)
+    # funciton that retrieves the dynamics from the csv
+
+ #   df = wload(datadir("simulations",notebook_file, savename(save_parameters, "csv")))
+    df = CSV.read(datadir("simulations",notebook_file, savename(save_parameters, "csv")), DataFrame)
+    dtemp = wload(datadir("simulations",notebook_file, savename(save_parameters, "jld2")))
+    c = dtemp["circuit"]
+
+    for pop in [c.list_pv, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
+        for n in pop
+
+            temp_name = string("r-",n.name)
+            n.r = df[:,temp_name]
+            temp_name = string("Itot-",n.name)
+            n.Itot = df[:,temp_name]
+
+            for s in n.list_syn
+                temp_name = string("s-",s.name)
+                s.s = df[:,temp_name]
+            end
+        end
+
+    end
+
+    for pop in [c.list_dend]
+        for n in pop
+
+            temp_name = string("Ioutput-",n.name)
+            n.Ioutput = df[:,temp_name]
+           
+        end
+    end
+    return c
 
 end
 

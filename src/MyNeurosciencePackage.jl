@@ -9,6 +9,10 @@ include(".\\NeuronalStructures.jl")
 using .NeuronalStructures
 export simulation_parameters, dendrites_param_sigmoid, dend_sigmoid, soma_PC
 export neural_integrator, microcircuit
+export get_dynamics, save_dynamics
+export vip_cell, pv_cell, sst_cell
+export gaba_syn, ampa_syn, nmda_syn
+
 
 include(".\\DynamicsFunction.jl")
 using .DynamicsFunction
