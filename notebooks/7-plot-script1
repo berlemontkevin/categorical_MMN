@@ -1,0 +1,169 @@
+### A Pluto.jl notebook ###
+# v0.15.1
+
+using Markdown
+using InteractiveUtils
+
+# ╔═╡ 297ff700-ebcc-11eb-22f0-77c734d7bf4d
+begin
+	using DrWatson
+	
+	quickactivate("C:\\Users\\kevin\\Documents\\MyDocuments\\1-Research_projects\\1-project-categorical-MMN","1-project-categorical-MMN")
+	push!(LOAD_PATH,srcdir())
+
+end
+
+# ╔═╡ 6b746196-be0f-47a3-9512-6a70a77b48a4
+begin
+	using Revise
+	using MyNeurosciencePackage
+	using CairoMakie
+	using Parameters, JLD2, Statistics	
+	using DataFrames
+	
+	
+	set_theme!(theme_light())
+
+	
+end
+
+# ╔═╡ 7b3f6f1b-4c6a-4fa2-86c7-6e3eb8c5ab6e
+begin
+	dict = Dict(
+	"f1" => 0.5,
+	"value_stim_f1" => 0.2,
+	"Tinter" => 1.0,
+	"Tstim" => 0.5,
+	"Tfin" => 120.0,
+	"value_stim_f2" => 0.0
+)
+	
+	data = load(datadir("sims","script1",savename("oddball_task",dict,"jld2")))
+	
+	
+	
+end
+
+# ╔═╡ 6713aae1-ffb9-4111-8eb4-36a15663f488
+scatter(data["microcircuit1-ecell1"])
+
+# ╔═╡ 31e6a429-5ccf-4074-82be-479e1058d2ee
+res = collect_results!(datadir("sims","script1");  subfolders = true)
+
+# ╔═╡ b74119b3-be26-4ef9-97c8-60ad88f936f6
+begin
+	    noto_sans = assetpath("fonts", "NotoSans-Regular.ttf")
+    fig1 = Figure( font = noto_sans)
+	
+	
+    ax1 = fig1[1, 1] = Axis(fig1, title = "Mean firing rate vs frequencies", xlabel="Frenquencies", ylabel = "mean firing rate")
+	
+	for vf1 in 0.1:0.1:0.5
+	
+		fig1_dict = Dict(
+	"f1" => collect(0.1:0.1:0.9),
+	"value_stim_f1" => vf1,
+	"Tinter" => 1.0,
+	"Tstim" => 0.5,
+	"Tfin" => 120.0,
+	"value_stim_f2" => 0.0
+)
+	
+	fig1_list = zeros(length(collect(0.1:0.1:0.9)))
+	
+	for (i,dict_temp) in enumerate(dict_list(fig1_dict))
+		
+		data = load(datadir("sims","script1",savename("oddball_task",dict_temp,"jld2")))
+
+	mean_value = get_mean_firing_rate(data,"microcircuit1-ecell1","current-to-e1",dict_temp["value_stim_f1"])
+		
+		fig1_list[i]= mean_value
+	end
+	
+	
+	lines!(ax1,collect(0.1:0.1:0.9),fig1_list,linewidth=5,label="value stim = $vf1")
+	
+end
+	fig1[1, 2] = Legend(fig1, ax1, "Legend", framevisible = false)
+
+	
+	fig1
+end
+
+# ╔═╡ 97e728c0-661d-459c-91ea-46ecd4a2f592
+begin
+	
+	map_xaxis = collect(0.1:0.1:0.5)
+	map_yaxis = collect(0.0:0.1:0.5)
+	
+	map_Δfiring_rate = zeros(length(map_xaxis),length(map_yaxis))
+	
+	for (i,vf1) in enumerate(collect(0.1:0.1:0.5))
+		
+		for (j,vf2) in enumerate(collect(0.0:0.1:0.5))
+			
+			fig1_dict = Dict(
+	"f1" => collect(0.1:0.1:0.9),
+	"value_stim_f1" => vf1,
+	"Tinter" => 1.0,
+	"Tstim" => 0.5,
+	"Tfin" => 120.0,
+	"value_stim_f2" => vf2
+)
+				mean_value_list = zeros(length(collect(0.1:0.1:0.9)))
+
+			for (k,dict_temp) in enumerate(dict_list(fig1_dict))
+		data = load(datadir("sims","script1",savename("oddball_task",dict_temp,"jld2")))
+
+	mean_value = get_mean_firing_rate(data,"microcircuit1-ecell1","current-to-e1",dict_temp["value_stim_f1"])
+				
+						mean_value_list[k]= mean_value
+
+			end
+			
+			Δf = mean_value_list[1] - mean_value_list[end]
+			
+			map_Δfiring_rate[i,j] = Δf
+			
+		end
+		
+	end
+	
+	
+	
+end
+
+# ╔═╡ 09a3fdb0-963f-4b24-87d8-90ce6f119a78
+begin
+	
+	fig2 = Figure()
+	ax = Axis(fig2[1,1], xlabel = "value f1", ylabel = "value f2",title="Δfiring rate")
+	
+	for i=1:5 map_Δfiring_rate[i,(i+2):end] .= NaN  end
+	
+	hm = heatmap!(ax, map_xaxis, map_yaxis, map_Δfiring_rate, colormap = :reds)
+	Colorbar(fig2[1,2], hm)
+	fig2
+end
+
+# ╔═╡ 42cd58f1-4f34-4d93-bac0-a89515f2adcb
+
+
+# ╔═╡ 2ecf69eb-8abc-41d9-ac82-f63be943b65d
+
+
+# ╔═╡ 185e0a7b-f9e7-4c32-bef6-2753a8ab0d7d
+
+
+# ╔═╡ Cell order:
+# ╠═297ff700-ebcc-11eb-22f0-77c734d7bf4d
+# ╠═6b746196-be0f-47a3-9512-6a70a77b48a4
+# ╠═7b3f6f1b-4c6a-4fa2-86c7-6e3eb8c5ab6e
+# ╠═6713aae1-ffb9-4111-8eb4-36a15663f488
+# ╠═31e6a429-5ccf-4074-82be-479e1058d2ee
+# ╠═b74119b3-be26-4ef9-97c8-60ad88f936f6
+# ╠═97e728c0-661d-459c-91ea-46ecd4a2f592
+# ╠═09a3fdb0-963f-4b24-87d8-90ce6f119a78
+# ╠═42cd58f1-4f34-4d93-bac0-a89515f2adcb
+# ╠═2ecf69eb-8abc-41d9-ac82-f63be943b65d
+# ╠═185e0a7b-f9e7-4c32-bef6-2753a8ab0d7d

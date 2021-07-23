@@ -29,6 +29,11 @@ include(".\\PlotFunctions.jl")
 using .PlotFunctions
 export plot_local_circuit
 
+
+include(".\\DataAnalysis.jl")
+using .DataAnalysis
+export get_mean_firing_rate
+
 #include(".\\Plasticity.jl")
 #using .Plasticity
 
