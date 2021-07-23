@@ -39,14 +39,14 @@ export update_fr!, update_syn_current!
 Updates  the firing rate of a rectified linear neuron. Takes the differential equation method in the arguments
 """
 function update_fr!(n::rectified_linear_neurons, euler_m::euler_method)
-    if euler_m.record
-        push!(n.fr, n.fr[end])
-        n.fr[end] += euler_m.dt / n.τ * (-n.fr[end] + n.Isyn[end] )
-        n.fr[end] = rect_linear(n.fr[end])
-    else
-        n.fr[end] += euler_m.dt / n.τ * (-n.fr[end] + n.Isyn[end] )
-        n.fr[end] = rect_linear(n.fr[end])
-    end
+    # if euler_m.record
+        n.fr += euler_m.dt / n.τ * (-n.fr + n.Isyn )
+        n.fr = rect_linear(n.fr)
+    # else
+    #     n.fr[end] += euler_m.dt / n.τ * (-n.fr + n.Isyn[end] )
+    #     n.fr[end] = rect_linear(n.fr[end])
+    # end
+    push!(n.fr_save, n.fr)
 
 end
 
@@ -59,12 +59,16 @@ let's note that the synaptic weights have a SIGN
 """
 function update_syn_current!(n::neuron)
 
-    n.Isyn[end] = 0.0
+    n.Isyn = 0.0
     for syn in n.neurons_list
-        n.Isyn[end] += syn.pre_syn.fr[end] * syn.w[end]
+        n.Isyn += syn.pre_syn.fr * syn.w
     end
-    n.Isyn[end] += n.Ibg[end] 
+    n.Isyn += n.Ibg 
+    push!(n.Isyn_save,n.Isyn)
 end
+
+
+
 end
 
 using .GeneralDynamicalFunctions
@@ -107,21 +111,40 @@ end
 
 function dendrite_input_output!(d::dend_sigmoid)
     @unpack c1, c2, c3, c4, c5, c6 = d.param_c
-    y = (d.Iexc[end] .- c2.*d.Iinh[end] .+ c6 )/(c3.*d.Iinh[end] .+ c4)
-    push!(d.Ioutput, c1.*(-0.5 .+ sigmoid(y)).+c5 )
+    y = (d.Iexc .- c2.*d.Iinh .+ c6 )/(c3.*d.Iinh .+ c4)
+    
+    d.Ioutput = c1.*(-0.5 .+ sigmoid(y)).+c5
+    
+    push!(d.Ioutput_save, d.Ioutput )
+
+
+
 end
 
 
 # need an abstract type for the neurons
 function sum_input!(n::T where {T<: local_circuit_interneuron} )
-    push!(n.Inoise, n.OU_process.noise[end])
-    push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim )
+    push!(n.Inoise, n.OU_process.noise[end]) #TODO pre-create noise terms
+
+    if n.adaptation_boolean
+        update_adaptation!(n)
+
+        Iadapt = n.adaptation.gA * n.adaptation.sA
+        n.Itot = n.Iinh + n.Iexc + n.Inoise[end] + n.Ibg + n.Istim + Iadapt
+        push!(n.Itot_save , n.Itot)
+
+    else
+        n.Itot = n.Iinh + n.Iexc + n.Inoise[end] + n.Ibg + n.Istim 
+        push!(n.Itot_save , n.Itot)
+
+    end
+
 end
 
 function sum_input!(n::soma_Sean2020)
     push!(n.Inoise, n.OU_process.noise[end])
-
-    push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput[end])
+    n.Itot = n.Iinh + n.Iexc + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput
+    push!(n.Itot_save , n.Itot)
 
 end
 function sum_input!(n::soma_PC)
@@ -130,19 +153,20 @@ function sum_input!(n::soma_PC)
     if n.adaptation_boolean
         update_adaptation!(n)
 
-        Iadapt = n.adaptation.gA * n.adaptation.sA[end]
-        push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput[end]+ Iadapt)
+        Iadapt = n.adaptation.gA * n.adaptation.sA
+        n.Itot = n.Iinh + n.Iexc + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput+ Iadapt
+        push!(n.Itot_save , n.Itot)
 
     else
-        push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput[end])
-
+        n.Itot = n.Iinh + n.Iexc + n.Inoise[end] + n.Ibg + n.Istim + n.den.Ioutput
+        push!(n.Itot_save , n.Itot)
     end
 end
 
 function sum_input!(n::neural_integrator)
     push!(n.Inoise, n.OU_process.noise[end])
-
-    push!(n.Itot , n.Iinh[end] + n.Iexc[end] + n.Inoise[end] + n.Ibg + n.Istim )
+    n.Itot = n.Iinh + n.Iexc + n.Inoise[end] + n.Ibg + n.Istim 
+    push!(n.Itot_save , n.Itot )
 end
 
 function current_to_frequency!(neuron::pyr_cell)
@@ -151,7 +175,7 @@ function current_to_frequency!(neuron::pyr_cell)
     b = neuron.b
     d = neuron.c
     
-    input_current = neuron.Itot[end]
+    input_current = neuron.Itot
 
     return (a*input_current - b)/(1 - exp(-d*(a*input_current - b)))
 
@@ -164,7 +188,7 @@ function current_to_frequency!(neuron::neural_integrator)
     d = neuron.c
     # for now, the integrtor is on the f-I curve
     
-    return neuron.α.*neuron.r[end] .+ (a*neuron.Itot[end] - b)/(1 - exp(-d*(a*neuron.Itot[end] - b)))
+    return neuron.α.*neuron.r .+ (a*neuron.Itot - b)/(1 - exp(-d*(a*neuron.Itot - b)))
     
 end
 
@@ -173,7 +197,7 @@ function current_to_frequency!(neuron::T where {T<: local_circuit_interneuron})
     # r is the rate of the neuron
     c_I = neuron.c_I
     r0 = neuron.r0
-    input_current = neuron.Itot[end]
+    input_current = neuron.Itot
 
     return rect_linear(c_I*input_current + r0)
 end
@@ -182,22 +206,22 @@ end
 
 function update_firing!(n::neuron)
     # update firing rates following Euler law
-    push!(n.r , n.r[end] + n.dt/n.τ*(-n.r[end] + current_to_frequency!(n)))
-
+    n.r = n.r + n.dt/n.τ*(-n.r + current_to_frequency!(n))
+    push!(n.r_save,n.r)
 end
 
 
 function synapse_derivative(s::ampa_syn)
     if s.facilitation
-        push!(s.u,s.u[end])
-        s.u[end] += s.f_param.dt*((s.f_param.U - s.u[end])/s.f_param.τ + s.f_param.U*(1.0 - s.u[end])*s.neuron_pre.r[end])
-        return -s.s[end]/s.τ + s.γ*s.mult*s.u[end]*s.neuron_pre.r[end]
+        s.u += s.f_param.dt*((s.f_param.U - s.u)/s.f_param.τ + s.f_param.U*(1.0 - s.u)*s.neuron_pre.r)
+        push!(s.u_save,s.u)
+        return -s.s/s.τ + s.γ*s.mult*s.u*s.neuron_pre.r
     elseif s.depression
-        push!(s.d,s.d[end])
-        s.d[end] += s.f_param.dt*((1.0 - s.d[end])/s.f_param.τ - s.d[end]*(1.0 - s.d_param.fD)*s.neuron_pre.r[end])
-        return -s.s[end]/s.τ + s.γ*s.mult*s.d[end]*s.neuron_pre.r[end]
+        s.d += s.f_param.dt*((1.0 - s.d)/s.f_param.τ - s.d*(1.0 - s.d_param.fD)*s.neuron_pre.r)
+        push!(s.d_save,s.d)
+        return -s.s/s.τ + s.γ*s.mult*s.d*s.neuron_pre.r
     else
-        return -s.s[end]/s.τ + s.γ*s.neuron_pre.r[end]
+        return -s.s/s.τ + s.γ*s.neuron_pre.r
     end
 
 end
@@ -205,22 +229,24 @@ end
 
 function synapse_derivative(s::gaba_syn)
     #paper Sean: Inhibition onto the dendrites is slower than inhibition elsewhere (ali and Thomson 2008)
-    return -s.s[end]/s.τ + s.γ*s.neuron_pre.r[end]
+    return -s.s/s.τ + s.γ*s.neuron_pre.r
 
 end
 
 
 function synapse_derivative(s::nmda_syn)
     if s.facilitation
-        push!(s.u,copy(s.u[end]))
-        s.u[end] += s.f_param.dt*((s.f_param.U - s.u[end])/s.f_param.τ + s.f_param.U*(1.0 - s.u[end])*s.neuron_pre.r[end])
-        return -s.s[end]/s.τ + s.γ*(1.0 - s.s[end])*s.u[end]*s.mult*s.neuron_pre.r[end]
+        s.u += s.f_param.dt*((s.f_param.U - s.u)/s.f_param.τ + s.f_param.U*(1.0 - s.u)*s.neuron_pre.r)
+        push!(s.u_save,s.u)
+
+        return -s.s/s.τ + s.γ*(1.0 - s.s)*s.u*s.mult*s.neuron_pre.r
     elseif s.depression
-        push!(s.d,s.d[end])
-        s.d[end] += s.f_param.dt*((1.0 - s.d[end])/s.f_param.τ - s.d[end]*(1.0 - s.d_param.fD)*s.neuron_pre.r[end])
-        return -s.s[end]/s.τ + s.γ*s.mult*s.d[end]*s.neuron_pre.r[end]
+        s.d += s.f_param.dt*((1.0 - s.d)/s.f_param.τ - s.d*(1.0 - s.d_param.fD)*s.neuron_pre.r)
+        push!(s.d_save,s.d)
+
+        return -s.s/s.τ + s.γ*s.mult*s.d*s.neuron_pre.r
     else
-        return -s.s[end]/s.τ + s.γ*(1.0 - s.s[end])*s.neuron_pre.r[end]
+        return -s.s/s.τ + s.γ*(1.0 - s.s)*s.neuron_pre.r
     end
 
 end
@@ -230,18 +256,19 @@ function current_synapses!(ln::Vector{N} where N <: neuron,d::Dict{String, Vecto
     # separe in two the currents (due to the dendrites)
 for n in ln
 
-    push!(n.Iexc , 0.0)
-    push!(n.Iinh , 0.0)
+    n.Iexc = 0.0
+    n.Iinh = 0.0
 
     for s in n.list_syn
         if s.g <0.0
-            n.Iinh[end] += s.g * s.s[end]
+            n.Iinh += s.g * s.s
         else
-            n.Iexc[end] += s.g * s.s[end]
+            n.Iexc += s.g * s.s
         end
     end
 
-  
+    push!(n.Iexc_save , n.Iexc)
+    push!(n.Iinh_save , n.Iinh)
     n.Istim = d[n.name][index]
 end
 
@@ -251,16 +278,20 @@ function current_synapses!(n::dend_sigmoid)
     #compute the sum of syn currents
     # separe in two the currents (due to the dendrites)
 
-    push!(n.Iexc , 0.0)
-    push!(n.Iinh , 0.0)
+    n.Iexc = 0.0
+    n.Iinh = 0.0
 
     for s in n.list_syn
         if s.g <0.0
-            n.Iinh[end] += s.g * s.s[end]
+            n.Iinh += s.g * s.s
         else
-            n.Iexc[end] += s.g * s.s[end]
+            n.Iexc += s.g * s.s
         end
     end
+
+    push!(n.Iexc_save , n.Iexc)
+    push!(n.Iinh_save , n.Iinh)
+
 end
 
 
@@ -268,23 +299,24 @@ end
 function update_dend!(d::dend_Sean2020)
     current_synapses!(d)
     update_process!(d.OU_process)
-    d.Iexc[end] += d.Inoise[end] + d.Istim + d.Ibg
+    d.Iexc += d.Inoise[end] + d.Istim + d.Ibg
     dendrite_input_output!(d)
 end
 
 function update_dend!(d::dend_sigmoid)
     current_synapses!(d)
     update_process!(d.OU_process)
-    d.Iexc[end] += d.Inoise[end] + d.Istim + d.Ibg
-    push!(d.Itot, d.Iexc[end] + d.Iinh[end])
+    d.Iexc += d.Inoise[end] + d.Istim + d.Ibg
+    d.Itot=d.Iexc + d.Iinh
+    push!(d.Itot_save, d.Itot)
     dendrite_input_output!(d)
 end
 
 
 function update_adaptation!(n::neuron)
     adapt = n.adaptation
-    push!(adapt.sA, copy(adapt.sA[end]))
-    adapt.sA[end] += n.dt*(-adapt.sA[end]/adapt.τA + n.r[end])
+    adapt.sA += n.dt*(-adapt.sA/adapt.τA + n.r)
+    push!(adapt.sA_save, adapt.sA)
 
 end
 
@@ -400,8 +432,9 @@ function time_step(c::microcircuit,sim::simulation_parameters)
     for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
         for n in pop
             for s in n.list_syn
-                temp = copy(s.s[end])
-              push!(s.s , temp + s.dt * synapse_derivative(s))
+                s.s = s.s + s.dt * synapse_derivative(s)
+                push!(s.s_save , s.s)
+
             end
         end
 
@@ -455,8 +488,8 @@ function time_step(c::microcircuit,sim::simulation_parameters)
         for n in nn.list_units
             for s in n.list_syn
 
-                push!(s.s , s.s[end]+ s.dt * synapse_derivative(s))
-            
+                s.s = s.s+ s.dt * synapse_derivative(s)
+            push!(s.s_save, s.s)
             end
         end
    # update_s!(nn,sim)
@@ -469,8 +502,9 @@ function time_step(l_c::Vector{microcircuit},sim::simulation_parameters, d::Dict
     for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
         for n in pop
             for s in n.list_syn
-                temp = copy(s.s[end])
-              push!(s.s , temp + s.dt * synapse_derivative(s))
+                
+              s.s = s.s + s.dt * synapse_derivative(s)
+              push!(s.s_save,s.s)
             end
         end
 
@@ -512,24 +546,24 @@ function time_step(l_c::Vector{microcircuit},sim::simulation_parameters, d::Dict
     update_firing!.(c.list_pv)
     update_firing!.(c.list_integrator)
 
-    for nn in c.nn
-      #  for n in nn.list_units
-       #     current_synapses!(n)
+#     for nn in c.nn
+#       #  for n in nn.list_units
+#        #     current_synapses!(n)
         
-        #end
-      update_s!(nn,sim)
-    end
+#         #end
+#       update_s!(nn,sim)
+#     end
    
-    for nn in c.nn
-        for n in nn.list_units
-            for s in n.list_syn
+#     for nn in c.nn
+#         for n in nn.list_units
+#             for s in n.list_syn
 
-                push!(s.s , s.s[end]+ s.dt * synapse_derivative(s))
-            
-            end
-        end
-   # update_s!(nn,sim)
-    end
+#                 s.s = s.s+ s.dt * synapse_derivative(s)
+#             push!(s.s_save,s.s)
+#             end
+#         end
+#    # update_s!(nn,sim)
+#     end
 end
 end
 
@@ -566,7 +600,7 @@ end
 
 function full_time_dynamics(l_c::Vector{microcircuit}, sim::simulation_parameters, d::Dict{String, Vector{Float64}})
     # TODO: to write better. compute the whole time dynamics of the microcuit
-    list_time = 0.0:sim.dt:sim.Tfin
+    list_time = 0.0:sim.dt:(sim.dt*length(d[l_c[1].list_soma[1].name]))
    
  # TODO a dictionnary of stimlus that can be access through the names of the neurons
 

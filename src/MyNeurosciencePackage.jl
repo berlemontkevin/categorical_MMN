@@ -25,6 +25,10 @@ include(".\\NetworkConstruction.jl")
 using .NetworkConstruction
 export create_network
 
+include(".\\PlotFunctions.jl")
+using .PlotFunctions
+export plot_local_circuit
+
 #include(".\\Plasticity.jl")
 #using .Plasticity
 

@@ -4,7 +4,7 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ a2d39c60-d06a-11eb-1364-c1e29d8f626f
+# ╔═╡ b2a49532-eb00-11eb-21eb-2f173ae5d57b
 begin
 	using DrWatson
 	
@@ -13,7 +13,7 @@ begin
 
 end
 
-# ╔═╡ 1334881e-d06b-11eb-3ec8-13f9d3037c39
+# ╔═╡ a0fa119b-08b1-44f8-b253-71fccf78f2cc
 begin
 	using Revise
 	using MyNeurosciencePackage
@@ -21,22 +21,7 @@ begin
 	using Parameters, JLD2, JuMP, Statistics
 end
 
-# ╔═╡ e5810c90-d06b-11eb-26d3-e378a54e0bf7
-md""" # Setup of the network
-
-- Adaptation to pyramidal cells
-- E to SST should be facilitated (Lee et al 2013) (Long range)
-- E to VIP long range are depression (Karnani et al 2016)
-- Int to dendrite = depression
-- E to SST local should be facilitated
-- VIP and SST facilitating
-- PV to E depression
-- E to PV depression
-- E to VIP depression
-
-"""
-
-# ╔═╡ 16aa4df0-d06b-11eb-3d89-6fafd70abb11
+# ╔═╡ d436dc2b-107b-4a3b-a1c6-2c5969fc7714
 begin
 	
 
@@ -126,7 +111,21 @@ end
 	
 end
 
-# ╔═╡ 4f7a9670-077c-488c-be66-264db4616673
+# ╔═╡ 371793e6-9bfe-4daf-a26b-0aa89c82b167
+temp_dict=Dict(
+"microcircuit1-vipcell1" =>zeros(t_tot), 
+"microcircuit1-sstcell1" =>zeros(t_tot),
+"microcircuit1-pvcell1" =>zeros(t_tot),
+"microcircuit1-ecell1" =>zeros(t_tot),
+"microcircuit1-integrator1" =>zeros(t_tot),
+"microcircuit2-vipcell1" =>zeros(t_tot),
+"microcircuit2-sstcell1" =>zeros(t_tot),
+"microcircuit2-pvcell1" =>zeros(t_tot),
+"microcircuit2-ecell1" =>zeros(t_tot),
+"microcircuit2-integrator1" =>zeros(t_tot)
+)
+
+# ╔═╡ f02a080a-e259-4ec8-83af-ec896297ba8b
 begin
 	
 	function create_stimu(stim_strength::Float64,sim::simulation_parameters; Tsim = 0.500, Tinterval=1) #in s
@@ -160,29 +159,33 @@ begin
 	
 end
 
-# ╔═╡ 970c91ff-ad74-4d1a-9f5a-c62bf0a3dd27
+# ╔═╡ 08f3d0a8-7897-4c3f-9815-12f5d83eb688
+sim
 
-
-# ╔═╡ 316e1a4b-3490-4c82-ba75-e2741ffccaf7
+# ╔═╡ 2bec0a29-96e0-4f5b-9324-d5429ffbe713
 begin
 	
 	#needs to construct a general array with all the stim. The question is, how to make it automatic??? Symbolic Julia?
+	function generate_oddball_task(param::Dict{String,Float64})#f1::Float64, value_stim_f1::Float64; Tinter = 1.0, Tstim = 0.5, Tfin = 60.0, value_stim_f2 = 0.0)
 	
-	f1 = 0.2
+	@unpack f1, value_stim_f1,Tinter, Tstim, Tfin, value_stim_f2 = param
+		
 	f2 = 1-f1
-	value_stim_f1 = 0.2
-	value_stim_f2 = 0.0
-	Tfin = 80.0
 	dt = 0.0005
-	Tinter = 1.0
-	Tstim = 0.5
 	t_tot = Int64(Tfin/dt)
+		
+		
+		# create the network with all adapt, depression and so on (TODO the main fig)
 	lc = construct_two_local_microcircuit_integrator(facilitation=true, depression = true, adaptation = true)
-	sim = simulation_parameters(Tfin=10.0)
+		
+		
+	sim = simulation_parameters(Tstimduration = Tstim, TISI = Tinter, Tfin=Tfin, Tinit = 2000)
+	
+		t_tot +=2000 # Adding a resting state time
 
-	sim.Tfin = Tfin
-	t_tot +=2000
-	oddball=Dict(
+		
+		#For now dictionnary is define manually
+		oddball=Dict(
 "microcircuit1-vipcell1" =>zeros(t_tot), 
 "microcircuit1-sstcell1" =>zeros(t_tot),
 "microcircuit1-pvcell1" =>zeros(t_tot),
@@ -225,180 +228,85 @@ begin
 	oddball["microcircuit1-ecell1"] = [0.1*ones(2000);array_stim_f1]
 	oddball["microcircuit2-ecell1"] = [0.1*ones(2000);array_stim_f2]
 	
+		full_time_dynamics(lc,sim,oddball)
 	
-	full_time_dynamics(lc,sim,oddball)
+	times_stim = collect((2000+Int((Tinter+0.01)/dt)):Int((Tstim+Tinter)/dt):Int(Tfin/dt+2000))
+			
+			d = Dict()
+			 for c in lc
+  			  for pop in [c.list_pv, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
+			# for now dend is not saved
+					for n in pop
+					d[n.name] = n.r_save[times_stim]
+					
+				end
+				end
+				
+			end
+			
+			d["current-to-e1"] = oddball["microcircuit1-ecell1"][times_stim]
+			d["current-to-e2"] = oddball["microcircuit2-ecell1"][times_stim]
+			d["times_step"] = times_stim
+	#Need to save all firing rates, all times and currents
+			
+			
+# 	true_times_stim = times_stim[oddball["microcircuit1-ecell1"][times_stim] .== value_stim_f1]
+			
+# 		true_times_stim_f2 = times_stim[oddball["microcircuit1-ecell2"][times_stim] .== value_stim_f1]
+	#@time full_time_dynamics(lc,sim,oddball)
 	
-	
+			return d
+			
+		end
 end
 
-# ╔═╡ 570c0cd7-8469-448a-a6eb-5accefed980e
-temp_dict=Dict(
-"microcircuit1-vipcell1" =>zeros(t_tot), 
-"microcircuit1-sstcell1" =>zeros(t_tot),
-"microcircuit1-pvcell1" =>zeros(t_tot),
-"microcircuit1-ecell1" =>zeros(t_tot),
-"microcircuit1-integrator1" =>zeros(t_tot),
-"microcircuit2-vipcell1" =>zeros(t_tot),
-"microcircuit2-sstcell1" =>zeros(t_tot),
-"microcircuit2-pvcell1" =>zeros(t_tot),
-"microcircuit2-ecell1" =>zeros(t_tot),
-"microcircuit2-integrator1" =>zeros(t_tot)
+# ╔═╡ 17177775-89fe-43cf-a454-8919dbf5065d
+param = Dict(
+	"f1" => 0.8,
+	"value_stim_f1" => 0.2,
+	"Tinter" => 1.0,
+	"Tstim" => 0.5,
+	"Tfin" => 10.0,
+	"value_stim_f2" => 0.0
 )
 
-# ╔═╡ 368c79d3-707c-4847-a7f0-a87758447d97
-sim
+# ╔═╡ 3c2b0efc-df33-4a5f-9128-bcfff869dbba
+d=generate_oddball_task(param)
 
-# ╔═╡ 7c4c482e-2397-476e-925a-1bbc295d2ec7
+# ╔═╡ 00216ed7-8797-4ba7-adfe-4ac59be8c26e
+scatter(d["microcircuit1-ecell1"])
+
+# ╔═╡ b69bad9d-300a-42f9-997b-fd022a2d43d6
+scatter(d["current-to-e1"])
+
+# ╔═╡ c94a3def-357f-4692-9344-43429c0672d0
+data,file = produce_or_load(datadir("sims","script1"), param, generate_oddball_task,prefix="oddball_task")
+
+# ╔═╡ bbcdb7e3-e0f0-4b5c-acab-4364b857ab05
+@unpack data
+
+# ╔═╡ 4ba2d264-90da-4fe0-aa5b-44bc74647a6d
+
+
+# ╔═╡ 31eef824-0da0-402e-8f54-d2b8aedb81bd
 begin
 	fig = plot_local_circuit(lc,sim,oddball)
 	fig
 end
 
-# ╔═╡ a50b968f-df2a-4388-96dd-3b2c26296038
-md""" ## Plan to analyze the data
-
-
-The idea would be to extract the firing rate 10ms after the stim (for example)
-Plotting the mean firing rate w/r the frequency
-
-
-"""
-
-# ╔═╡ 338dfbbf-3701-467a-8eb5-0f77ca7bfd93
-begin
-	
-	times_stim = 4100:3000:160000
-	
-	true_times_stim = times_stim[oddball["microcircuit1-ecell1"][times_stim] .== 0.2]
-	
-	
-	mean(lc[1].list_soma[1].r[true_times_stim])
-	
-	
-	scatter(true_times_stim,lc[1].list_soma[1].r[true_times_stim])
-	
-end
-
-# ╔═╡ 173b5c1a-c05d-4c3c-81da-1680fda339ed
-begin
-	
-	#needs to construct a general array with all the stim. The question is, how to make it automatic??? Symbolic Julia?
-	function test_freq()
-		fig = Figure(backgroundcolor = RGBf0(0.98, 0.98, 0.98)
-            )
-    ax1 = fig[1, 1] = Axis(fig, title = "Local circuit 1")
-	list_mean = Float64[]	
-	ax2 = fig[2, 1] = Axis(fig, title = "Mean of local circuit 1")
-	
-		for value_stim_f1 in 0.1:0.1:0.9
-	for f1 in 0.1:0.1:0.9
-	f2 = 1-f1
-	#value_stim_f1 = 0.2
-	value_stim_f2 = 0.0
-	Tfin = 120.0
-	dt = 0.0005
-	Tinter = 1.0
-	Tstim = 0.5
-	t_tot = Int64(Tfin/dt)
-	lc = construct_two_local_microcircuit_integrator(facilitation=true, depression = true, adaptation = true)
-	sim = simulation_parameters(Tfin=10.0)
-
-	sim.Tfin = Tfin
-	t_tot +=2000
-	oddball=Dict(
-"microcircuit1-vipcell1" =>zeros(t_tot), 
-"microcircuit1-sstcell1" =>zeros(t_tot),
-"microcircuit1-pvcell1" =>zeros(t_tot),
-"microcircuit1-ecell1" =>zeros(t_tot),
-"microcircuit1-integrator1" =>zeros(t_tot),
-"microcircuit2-vipcell1" =>zeros(t_tot),
-"microcircuit2-sstcell1" =>zeros(t_tot),
-"microcircuit2-pvcell1" =>zeros(t_tot),
-"microcircuit2-ecell1" =>zeros(t_tot),
-"microcircuit2-integrator1" =>zeros(t_tot)
-)
-	
-	array_stim_f1 = zeros(floor(Int,Tfin/dt))
-	array_stim_f2 = zeros(floor(Int,Tfin/dt))
-
-	nbr_stim = floor(Int,Tfin/(Tinter + Tstim))
-	temp_index_stim = 0
-	while temp_index_stim < nbr_stim-1
-		
-		if rand()<f1
-		array_stim_f1[floor(Int,1+temp_index_stim*(Tinter+Tstim)/dt):floor(Int,(temp_index_stim+1)*(Tinter+Tstim)/dt)] = [zeros(floor(Int,Tinter/dt)) ; value_stim_f1*ones(floor(Int,Tstim/dt))]
-			
-		array_stim_f2[floor(Int,1+temp_index_stim*(Tinter+Tstim)/dt):floor(Int,(temp_index_stim+1)*(Tinter+Tstim)/dt)] = [zeros(floor(Int,Tinter/dt)) ; value_stim_f2*ones(floor(Int,Tstim/dt))]
-		else
-			
-			array_stim_f1[floor(Int,1+temp_index_stim*(Tinter+Tstim)/dt):floor(Int,(temp_index_stim+1)*(Tinter+Tstim)/dt)] = [zeros(floor(Int,Tinter/dt)) ; value_stim_f2*ones(floor(Int,Tstim/dt))]
-			
-			array_stim_f2[floor(Int,1+temp_index_stim*(Tinter+Tstim)/dt):floor(Int,(temp_index_stim+1)*(Tinter+Tstim)/dt)] = [zeros(floor(Int,Tinter/dt)) ; value_stim_f1*ones(floor(Int,Tstim/dt))]
-		end
-			
-			temp_index_stim +=1
-				
-	end
-	# for now, the end of the array is 0
-	
-	
-	
-	# of course it will be necessary to transform it in a function
-	
-	oddball["microcircuit1-ecell1"] = [0.1*ones(2000);array_stim_f1]
-	oddball["microcircuit2-ecell1"] = [0.1*ones(2000);array_stim_f2]
-	
-	
-	full_time_dynamics(lc,sim,oddball)
-	
-	times_stim = 4100:3000:200000
-			
-	
-	true_times_stim = times_stim[oddball["microcircuit1-ecell1"][times_stim] .== value_stim_f1]
-	
-	
-	#mean(lc[1].list_soma[1].r[true_times_stim])
-	
-	
-	scatter!(ax1,true_times_stim.*sim.dt,lc[1].list_soma[1].r[true_times_stim],label = "Frequency = $f1",color=(:blue, f1))
-			
-			push!(list_mean,mean(lc[1].list_soma[1].r[true_times_stim]))
-		end
-		axislegend(ax1)
-		
-		#lines!(ax2, 0.1:0.1:0.9,list_mean, linewidth=2)
-		end
-			return fig,list_mean
-	end
-end
-
-# ╔═╡ 509551a9-b49b-4fbe-9995-3b7c1b500be4
-fig_test,test_mean = test_freq()
-
-# ╔═╡ 3a546d30-5343-4517-8f9f-db408f436eff
-a = Dict("List mean r"=> test_mean)
-
-# ╔═╡ af4e8f2d-c209-4f13-b85a-adb0d2cf880a
-save(datadir("sims","temp","freq_stim_list.jld2"),a)
-
-# ╔═╡ f26ea19f-ee30-4c52-b97d-50d5df9cd58b
-scatter(test_mean)
-
 # ╔═╡ Cell order:
-# ╠═a2d39c60-d06a-11eb-1364-c1e29d8f626f
-# ╠═1334881e-d06b-11eb-3ec8-13f9d3037c39
-# ╠═e5810c90-d06b-11eb-26d3-e378a54e0bf7
-# ╠═16aa4df0-d06b-11eb-3d89-6fafd70abb11
-# ╠═570c0cd7-8469-448a-a6eb-5accefed980e
-# ╠═4f7a9670-077c-488c-be66-264db4616673
-# ╠═368c79d3-707c-4847-a7f0-a87758447d97
-# ╠═970c91ff-ad74-4d1a-9f5a-c62bf0a3dd27
-# ╠═316e1a4b-3490-4c82-ba75-e2741ffccaf7
-# ╠═7c4c482e-2397-476e-925a-1bbc295d2ec7
-# ╠═a50b968f-df2a-4388-96dd-3b2c26296038
-# ╠═338dfbbf-3701-467a-8eb5-0f77ca7bfd93
-# ╠═173b5c1a-c05d-4c3c-81da-1680fda339ed
-# ╠═509551a9-b49b-4fbe-9995-3b7c1b500be4
-# ╠═3a546d30-5343-4517-8f9f-db408f436eff
-# ╠═af4e8f2d-c209-4f13-b85a-adb0d2cf880a
-# ╠═f26ea19f-ee30-4c52-b97d-50d5df9cd58b
+# ╠═b2a49532-eb00-11eb-21eb-2f173ae5d57b
+# ╠═a0fa119b-08b1-44f8-b253-71fccf78f2cc
+# ╠═d436dc2b-107b-4a3b-a1c6-2c5969fc7714
+# ╠═371793e6-9bfe-4daf-a26b-0aa89c82b167
+# ╠═f02a080a-e259-4ec8-83af-ec896297ba8b
+# ╠═08f3d0a8-7897-4c3f-9815-12f5d83eb688
+# ╠═2bec0a29-96e0-4f5b-9324-d5429ffbe713
+# ╠═17177775-89fe-43cf-a454-8919dbf5065d
+# ╠═3c2b0efc-df33-4a5f-9128-bcfff869dbba
+# ╠═00216ed7-8797-4ba7-adfe-4ac59be8c26e
+# ╠═b69bad9d-300a-42f9-997b-fd022a2d43d6
+# ╠═c94a3def-357f-4692-9344-43429c0672d0
+# ╠═bbcdb7e3-e0f0-4b5c-acab-4364b857ab05
+# ╠═4ba2d264-90da-4fe0-aa5b-44bc74647a6d
+# ╠═31eef824-0da0-402e-8f54-d2b8aedb81bd
