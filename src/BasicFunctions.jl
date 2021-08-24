@@ -4,7 +4,7 @@ module BasicFunctions
     export rect_linear, sigmoid
     export heaviside
     export f_I_Abott
-    export OU_process, update_process!
+    export OU_process, update_process!, create_process!
 
 """
     Function: rect_linear
@@ -68,11 +68,20 @@ end
 
 function update_process!(s_process::OU_process)
     push!(s_process.noise, s_process.noise[end])
-    s_process.noise[end] +=  s_process.dt / s_process.τ * (-s_process.noise[end]+ sqrt(s_process.τ*s_process.σ*s_process.σ)*randn())
+    @inbounds s_process.noise[end] +=  s_process.dt / s_process.τ * (-s_process.noise[end]+ sqrt(s_process.τ*s_process.σ*s_process.σ)*randn())
    
 end
 
 
+function create_process!(s_process::OU_process)
+
+    tot = length(s_process.noise)
+    r_tot = randn(tot)
+    for i=2:tot
+        s_process.noise[i] =s_process[i-1] +  s_process.dt / s_process.τ * (-s_process.noise[i-1]+ sqrt(s_process.τ*s_process.σ*s_process.σ)*r_tot[i])
+    end
+   
+end
 
 
 

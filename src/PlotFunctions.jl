@@ -6,6 +6,7 @@ using ..NeuronalStructures
 export plot_local_circuit
 
 
+
 function plot_local_circuit(lc::Array{microcircuit},sim::simulation_parameters,list_current)
 		# list_current being the list of currents that are sent to the networks
     noto_sans = assetpath("fonts", "NotoSans-Regular.ttf")

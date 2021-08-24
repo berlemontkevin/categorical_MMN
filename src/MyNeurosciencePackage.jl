@@ -3,7 +3,7 @@ module MyNeurosciencePackage
 
 include(".\\BasicFunctions.jl")
 using .BasicFunctions
-export heaviside,rect_linear, sigmoid
+export heaviside,rect_linear, sigmoid, create_process!, OU_process
 
 include(".\\NeuronalStructures.jl")
 using .NeuronalStructures
@@ -23,7 +23,7 @@ export full_time_dynamics
 
 include(".\\NetworkConstruction.jl")
 using .NetworkConstruction
-export create_network
+export create_network, construct_two_local_microcircuit_integrator
 
 include(".\\PlotFunctions.jl")
 using .PlotFunctions
