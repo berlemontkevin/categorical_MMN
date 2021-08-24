@@ -502,6 +502,34 @@ using DataFrames, DrWatson,CSV#,CSVFiles
 end
 
 
+@with_kw mutable struct pv_cell_with_adaptation <: local_circuit_interneuron
+    r::Float64 = 0.0 #rate of the neuron
+    c_I::Float64 = 330.0
+    r0::Float64 = -95.0
+    Iinput::Float64 = 0.0
+    Iexc::Float64 = 0.0
+    Iinh::Float64 = 0.0
+    list_syn::Array{synapses} = []
+    Ibg::Float64 = 300.0 * 0.001
+    Itot::Float64 = 0.0
+    Inoise::Array{Float64} = [0.0]
+    Istim::Float64 = 0.0
+    dt::Float64 = 0.0005
+    τ::Float64 = 0.002
+    OU_process::OU_process = OU_process()
+    adaptation::adaptation_variables = adaptation_variables()
+    adaptation_boolean = true # boolean of adaptation or not
+    name::String
+    Iexc_save::Array{Float64} = [0.0]
+    Iinh_save::Array{Float64} = [0.0]
+    Ioutput_save::Array{Float64} = [0.0]
+    Itot_save::Array{Float64} = [0.0]
+    Inoise_save::Array{Float64} = [0.0]
+    r_save::Array{Float64} = [0.0]
+
+
+end
+
 @with_kw mutable struct sst_cell <: local_circuit_interneuron
   r::Float64 = 0.0 #rate of the neuron
     c_I::Float64 = 132.0
