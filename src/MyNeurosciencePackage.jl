@@ -19,7 +19,7 @@ using .DynamicsFunction
 export simulation_step!,time_step
 export dendrite_input_output!
 export sum_input!, current_to_frequency!, update_firing!, update_dend!
-export full_time_dynamics
+export full_time_dynamics, current_synapses!
 
 include(".\\NetworkConstruction.jl")
 using .NetworkConstruction

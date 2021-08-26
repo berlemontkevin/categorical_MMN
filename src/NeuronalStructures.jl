@@ -1,6 +1,6 @@
 module NeuronalStructures
 
-
+using StaticArrays
 export simulation_parameters
 
 export dendrites_param_sigmoid, dend_sigmoid, soma_PC
@@ -8,7 +8,7 @@ export neural_integrator, microcircuit
 export get_dynamics,save_dynamics
 export vip_cell, pv_cell, sst_cell
 export gaba_syn, ampa_syn, nmda_syn
-
+export sst_cell_with_adaptation
 ##############################################################################################################
 # Abstract types
 ###############################################################################################################
@@ -83,7 +83,7 @@ using .AbstractNeuronalTypes
 module EqDiffMethod
 
 using ..AbstractNeuronalTypes
-using Parameters
+using Parameters, StaticArrays
 export euler_method
 
 """
@@ -106,7 +106,7 @@ module Synapses
 
 using ..AbstractNeuronalTypes
 
-using Parameters
+using Parameters,StaticArrays
 export syn_connection
 
 """
@@ -131,7 +131,7 @@ export rectified_linear_neurons
 
 using ..AbstractNeuronalTypes, ..Synapses
 
-using Parameters
+using Parameters,StaticArrays
 
 
 """
@@ -167,23 +167,23 @@ using .NeuronalModels
 
 
 module attractor_network
-using Parameters
+using Parameters, StaticArrays
 using ..AbstractNeuronalTypes, ..EqDiffMethod
 using ...BasicFunctions
 
-export wong_wang_cell, neural_integrator
+export wong_wang_cell, neural_integrator, dynamique_integrator
 
 @with_kw struct wong_wang_cell <: neuron
-    r::Array{Float64} = [0.0]
-    s::Array{Float64} = [0.0] # synaptic gatign variable
-    Iexc::Array{Float64} = [0.0]
-    Iinh::Array{Float64} = [0.0]
-    Ioutput::Array{Float64} = [0.0]
-    list_syn::Array{synapses} = []
-    Ibg::Array{Float64} = [0.3255]
-    Itot::Array{Float64} = [0.0]
-    Inoise::Array{Float64} = [0.0]
-    Istim::Array{Float64} = [0.0]
+    r::Vector{Float64} = [0.0]
+    s::Vector{Float64} = [0.0] # synaptic gatign variable
+    Iexc::Vector{Float64} = [0.0]
+    Iinh::Vector{Float64} = [0.0]
+    Ioutput::Vector{Float64} = [0.0]
+    list_syn::Vector{synapses} = []
+    Ibg::Vector{Float64} = [0.3255]
+    Itot::Vector{Float64} = [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    Istim::Vector{Float64} = [0.0]
     γ::Float64 = 0.641
     a::Float64 = 270.0
     b::Float64 = 108.0
@@ -191,29 +191,45 @@ export wong_wang_cell, neural_integrator
 
 end
 
+@with_kw mutable struct dynamique_integrator
+    r::Float64 = 0.0		
+    Iexc::Float64 = 0.0
+    Iinh::Float64 = 0.0
+    Ibg::Float64 = 310.0 * 0.001
+    Itot::Float64 = 0.0
+    Inoise::Float64 = 0.0
+    Istim::Float64 = 0.0
+end
+
+
  # will be in simulation parameters later for the time dt
-@with_kw mutable struct neural_integrator <: neuron
+@with_kw struct neural_integrator <: neuron
+    dynamique_variables::dynamique_integrator = dynamique_integrator()
     τ::Float64 = 0.8 # test d'une cste de temps
     dt::Float64 = 0.0005
     α::Float64 = 0.9  #0.8 before
     a::Float64 = 135.0
     b::Float64 = 54.0
     c::Float64 = 0.308 #secondes
-    r::Float64= 0.0		
-    Iexc::Float64 = 0.0
-    Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
+    r::MVector{1,Float64} = @MVector [0.0]		
+    Iexc::MVector{1,Float64} = @MVector [0.0]
+    Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = []
+
+
+
+
     Ibg::Float64 = 310.0 * 0.001
-    Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
-    Istim::Float64 = 0.0
+    Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    Istim::MVector{1,Float64} = @MVector [0.0]
     OU_process::OU_process = OU_process()
     name::String
-    r_save::Array{Float64}= [0.0]		
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
+    r_save::Vector{Float64}= [0.0]		
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
     Ibg_save::Float64 = 310.0 * 0.001
-    Itot_save::Array{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
 end
 
 end
@@ -225,7 +241,7 @@ using .attractor_network
 # Neural network
 ###############################################################################################################
 module NeuralNetwork
-using Parameters
+using Parameters, StaticArrays
 using ..AbstractNeuronalTypes, ..EqDiffMethod
 using ..attractor_network
 export neural_population, neural_motif,wong_wang_network, simulation_parameters
@@ -268,20 +284,20 @@ Defines the structure of what constitutes a neural network
 """
 struct neural_motif 
     list_pop::Vector{neural_population} 
-    m_prob::Array{Float64} 
-    m_weights::Array{Float64} 
+    m_prob::Vector{Float64} 
+    m_weights::Vector{Float64} 
 
 end
 
 
 
-@with_kw mutable struct simulation_parameters
+@with_kw struct simulation_parameters
     dt::Float64 = 0.0005
     Tfin::Float64 = 20.0
     Tinit::Float64 = 2.0
     TISI::Float64 = 1.0    
     Tstimduration::Float64=0.5
-    #Stimulus::Dict{String,Array{Float64, floor(Int,(Tinit+Tfin)/dt)}} = Dict()
+    #Stimulus::Dict{String,Vector{Float64, floor(Int,(Tinit+Tfin)/dt)}} = Dict()
     
 
 
@@ -297,7 +313,7 @@ end
   tnmda::Float64 =100.0* 0.001# time constant of NMDA receptors
   tampa::Float64 = 2.0 * 0.001# time constant of AMPA receptors
   threshold::Float64# threhsold of the decision
-  list_units::Array{wong_wang_cell} = []
+  list_units::Vector{wong_wang_cell} = []
   EEself::Float64 = 11.0*0.0001
   EEcross::Float64 = 11.0*0.0001/2.0
 
@@ -313,10 +329,11 @@ using .NeuralNetwork
 
 
 module RateDendrites
-using Parameters
+using Parameters,StaticArrays
 
 using ..AbstractNeuronalTypes, ..EqDiffMethod, ...BasicFunctions
 export dendrites_param, soma_Sean2020, dend_Sean2020, dendrites_param_sigmoid, dend_sigmoid, adaptation_variables
+export dynamique_soma_PC, dynamique_dend_sigmoid
 export soma_PC
 # inputs to the rate model will be the time average total conductance of exc and inh synapses
 
@@ -332,9 +349,9 @@ export soma_PC
 
 end
 
-@with_kw mutable struct adaptation_variables
-    sA::Float64 = 0.0
-    sA_save::Array{Float64} = [0.0]
+@with_kw struct adaptation_variables
+    sA::Vector{Float64} = [0.0]
+    sA_save::Vector{Float64} = [0.0]
 
     τA::Float64 = 0.1 #seconds as for facilitation and 0.05
     gA::Float64 = -0.01 # value to test 0.5, was -0.1 before
@@ -352,58 +369,84 @@ struct dendrites_param_sigmoid
 end
 
 #TODO define a constant param per neuron
-@with_kw mutable struct dend_sigmoid <:dendrite
-    param_c::dendrites_param_sigmoid = [0.0,0.0,0.0,0.0,0.0,0.0]
+@with_kw mutable struct dynamique_dend_sigmoid
     Iexc::Float64 = 0.0
     Iinh::Float64 = 0.0
     Ioutput::Float64 = 0.0
-    list_syn::Array{synapses} = []
     Ibg::Float64 = 100.0 * 0.001
     Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
+    Inoise::Float64 = 0.0
     Istim::Float64 = 0.0
+end
+
+@with_kw struct dend_sigmoid <:dendrite
+    param_c::dendrites_param_sigmoid = [0.0,0.0,0.0,0.0,0.0,0.0]
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    #Ioutput::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = []
+    Ibg::Float64 = 100.0 * 0.001
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
     name::String = "temp"
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
+    #Iexc_save::Vector{Float64} = [0.0]
+    #Iinh_save::Vector{Float64} = [0.0]
+    #Ioutput_save::Vector{Float64} = [0.0]
+    #Itot_save::Vector{Float64} = [0.0]
+    #Inoise_save::Vector{Float64} = [0.0]
+    dynamique_variables::dynamique_dend_sigmoid = dynamique_dend_sigmoid()
   end
 
 
-@with_kw mutable struct soma_PC <: pyr_cell
-
+@with_kw mutable struct dynamique_soma_PC
     Idendexc::Float64 = 0.0
     Idendinh::Float64 = 0.0
-    f_I_curve = zeros(3)
     r::Float64 = 0.0
     Iinput::Float64 = 0.0
+    Iexc::Float64 = 0.0
+    Iinh::Float64 = 0.0
+    Itot::Float64 = 0.0
+    Inoise::Float64 = 0.0
+    Istim::Float64 = 0.0
+    Ibg::Float64 = 0.15#0.35#310.0 * 0.001
+
+end
+
+
+@with_kw struct soma_PC <: pyr_cell
+    dynamique_variables::dynamique_soma_PC = dynamique_soma_PC()
+  #  Idendexc::MVector{1,Float64} = @MVector [0.0]
+   # Idendinh::MVector{1,Float64} = @MVector [0.0]
+    f_I_curve = zeros(3)
+   # r::MVector{1,Float64} = @MVector [0.0]
+   # Iinput::MVector{1,Float64} = @MVector [0.0]
     a::Float64 = 135.0
     b::Float64 = 54.0
     c::Float64 = 0.308 #secondes
     den::dendrite #dendrite connected to the soma
-    Iexc::Float64 = 0.0
-    Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
     Ibg::Float64 = 0.15#0.35#310.0 * 0.001
-    Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
-    Istim::Float64 = 0.0
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = false # boolean of adaptation or not
     name::String
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    #Iexc_save::Vector{Float64} = [0.0]
+    #Iinh_save::Vector{Float64} = [0.0]
+    #Ioutput_save::Vector{Float64} = [0.0]
+    #Itot_save::Vector{Float64} = [0.0]
+    #Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
 
 end
 
@@ -421,32 +464,32 @@ end
     den::dendrite #dendrite connected to the soma
     Iexc::Float64 = 0.0
     Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
+    list_syn::Vector{synapses} = Vector{synapses}()
     Ibg::Float64 = 330.0 * 0.001
     Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
+    Inoise::Vector{Float64} = [0.0]
     Istim::Float64 = 0.0
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
 end
 
 
 @with_kw mutable struct dend_Sean2020 <:dendrite
     param_c = dendrites_param()
-    Iexc::Array{Float64} = [0.0]
-    Iinh::Array{Float64} = [0.0]
-    Ioutput::Array{Float64} = [0.0]
-    list_syn::Array{synapses} = []
+    Iexc::Vector{Float64} = [0.0]
+    Iinh::Vector{Float64} = [0.0]
+    Ioutput::Vector{Float64} = [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
     Ibg::Float64 = 30.0 * 0.001
-    Itot::Array{Float64} = [0.0]
-    Inoise::Array{Float64} = [0.0]
+    Itot::Vector{Float64} = [0.0]
+    Inoise::Vector{Float64} = [0.0]
     Istim::Float64 = 0.0
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
@@ -463,273 +506,357 @@ using .RateDendrites
 
 module local_circuit
 # let's start with only one dendrites
-using Parameters
+using Parameters, StaticArrays
 using ..AbstractNeuronalTypes, ..attractor_network, ..EqDiffMethod, ...BasicFunctions, ..NeuralNetwork, ..RateDendrites
 export pv_cell, sst_cell, vip_cell, gaba_syn, ampa_syn,nmda_syn, local_circuit_interneuron
-export local_circuit_interneuron_with_adaptation, local_circuit_interneuron_without_adaptation
+export local_circuit_interneuron_with_adaptation, local_circuit_interneuron_without_adaptation, dynamique_variables_interneurons, dynamique_variables_synapses
 abstract type excitatory_synapse <: synapses end
 abstract type local_circuit_interneuron <: interneuron end
 abstract type local_circuit_interneuron_with_adaptation <: local_circuit_interneuron end
 abstract type local_circuit_interneuron_without_adaptation <: local_circuit_interneuron end
-
+abstract type dynamique_variables_interneurons end
+abstract type dynamique_variables_synapses end
 
 export microcircuit
 export save_dynamics, get_dynamics
-    
+export sst_cell_with_adaptation    
+
+
 using DataFrames, DrWatson,CSV#,CSVFiles
 
 
 ## for now interneurons
+
+@with_kw mutable struct dynamique_pv_cell <: dynamique_variables_interneurons
+    r::Float64 = 0.0		
+    Iinput::Float64 = 0.0
+    Iexc::Float64 = 0.0
+    Iinh::Float64 = 0.0
+    Ibg::Float64 = 300.0 * 0.001
+    Itot::Float64 = 0.0
+    Inoise::Float64 = 0.0
+    Istim::Float64 = 0.0
+
+end
+
 #TODO better choice of name (maybe having an abstract pv and so type): Note that everything is static for now (one layer)
-@with_kw mutable struct pv_cell <: local_circuit_interneuron_without_adaptation
-    r::Float64 = 0.0 #rate of the neuron
+@with_kw struct pv_cell <: local_circuit_interneuron_without_adaptation
+    dynamique_variables::dynamique_pv_cell = dynamique_pv_cell()
+    #r::MVector{1,Float64} = @MVector [0.0]		
     c_I::Float64 = 330.0
     r0::Float64 = -95.0
-    Iinput::Float64 = 0.0
-    Iexc::Float64 = 0.0
-    Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
+    #Iinput::MVector{1,Float64} = @MVector [0.0]
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
     Ibg::Float64 = 300.0 * 0.001
-    Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
-    Istim::Float64 = 0.0
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = false # boolean of adaptation or not
     name::String
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    #Iexc_save::Vector{Float64} = [0.0]
+    #Iinh_save::Vector{Float64} = [0.0]
+    #Ioutput_save::Vector{Float64} = [0.0]
+    #Itot_save::Vector{Float64} = [0.0]
+    #Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
 end
 
 
-@with_kw mutable struct pv_cell_with_adaptation <: local_circuit_interneuron_with_adaptation
-    r::Float64 = 0.0 #rate of the neuron
+@with_kw struct pv_cell_with_adaptation <: local_circuit_interneuron_with_adaptation
+    dynamique_variables::dynamique_pv_cell = dynamique_pv_cell()
+    #r::MVector{1,Float64} = @MVector [0.0]		
     c_I::Float64 = 330.0
     r0::Float64 = -95.0
-    Iinput::Float64 = 0.0
-    Iexc::Float64 = 0.0
-    Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
+    #Iinput::MVector{1,Float64} = @MVector [0.0]
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
     Ibg::Float64 = 300.0 * 0.001
-    Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
-    Istim::Float64 = 0.0
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = true # boolean of adaptation or not
     name::String
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
 
 
 end
 
-@with_kw mutable struct sst_cell <: local_circuit_interneuron_without_adaptation
-    r::Float64 = 0.0 #rate of the neuron
-    c_I::Float64 = 132.0
-    r0::Float64 = -33.0
+
+@with_kw mutable struct dynamique_sst_cell <: dynamique_variables_interneurons
+    r::Float64 = 0.0		
     Iinput::Float64 = 0.0
     Iexc::Float64 = 0.0
     Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
     Ibg::Float64 = 300.0 * 0.001
     Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
+    Inoise::Float64 = 0.0
     Istim::Float64 = 0.0
+
+end
+
+@with_kw struct sst_cell <: local_circuit_interneuron_without_adaptation
+    dynamique_variables::dynamique_sst_cell = dynamique_sst_cell()
+    #r::MVector{1,Float64} = @MVector [0.0]		
+    c_I::Float64 = 132.0
+    r0::Float64 = -33.0
+    #Iinput::MVector{1,Float64} = @MVector [0.0]
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
+    Ibg::Float64 = 300.0 * 0.001
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = false # boolean of adaptation or not
     OU_process::OU_process = OU_process()
     name::String
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
 end
 
-@with_kw mutable struct sst_cell_with_adaptation <: local_circuit_interneuron_with_adaptation
-    r::Float64 = 0.0 #rate of the neuron
+@with_kw struct sst_cell_with_adaptation <: local_circuit_interneuron_with_adaptation
+    dynamique_variables::dynamique_sst_cell = dynamique_sst_cell()
+    #r::MVector{1,Float64} = @MVector [0.0]		
     c_I::Float64 = 132.0
     r0::Float64 = -33.0
-    Iinput::Float64 = 0.0
-    Iexc::Float64 = 0.0
-    Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
+    #Iinput::MVector{1,Float64} = @MVector [0.0]
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
     Ibg::Float64 = 300.0 * 0.001
-    Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
-    Istim::Float64 = 0.0
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = true # boolean of adaptation or not
     OU_process::OU_process = OU_process()
     name::String
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
     
 end
 
-
-@with_kw mutable struct vip_cell <: local_circuit_interneuron_without_adaptation
-    r::Float64 = 0.0 #rate of the neuron
-    c_I::Float64 = 132.0
-    r0::Float64 = -33.0 #Hz
+@with_kw mutable struct dynamique_vip_cell <: dynamique_variables_interneurons
+    r::Float64 = 0.0		
     Iinput::Float64 = 0.0
     Iexc::Float64 = 0.0
     Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
     Ibg::Float64 = 300.0 * 0.001
     Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
+    Inoise::Float64 = 0.0
     Istim::Float64 = 0.0
+
+end
+
+@with_kw struct vip_cell <: local_circuit_interneuron_without_adaptation
+    dynamique_variables::dynamique_vip_cell = dynamique_vip_cell()
+    #r::MVector{1,Float64} = @MVector [0.0]		
+    c_I::Float64 = 132.0
+    r0::Float64 = -33.0 #Hz
+    #Iinput::MVector{1,Float64} = @MVector [0.0]
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
+    Ibg::Float64 = 300.0 * 0.001
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = false # boolean of adaptation or not
     OU_process::OU_process = OU_process()
     name::String
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
 end
 
 
-@with_kw mutable struct vip_cell_with_adaptation <: local_circuit_interneuron_with_adaptation
-    r::Float64 = 0.0 #rate of the neuron
+@with_kw struct vip_cell_with_adaptation <: local_circuit_interneuron_with_adaptation
+    dynamique_variables::dynamique_vip_cell = dynamique_vip_cell()
+    #r::MVector{1,Float64} = @MVector [0.0]		
     c_I::Float64 = 132.0
     r0::Float64 = -33.0 #Hz
-    Iinput::Float64 = 0.0
-    Iexc::Float64 = 0.0
-    Iinh::Float64 = 0.0
-    list_syn::Array{synapses} = []
+    #Iinput::MVector{1,Float64} = @MVector [0.0]
+    #Iexc::MVector{1,Float64} = @MVector [0.0]
+    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    list_syn::Vector{synapses} = Vector{synapses}()
     Ibg::Float64 = 300.0 * 0.001
-    Itot::Float64 = 0.0
-    Inoise::Array{Float64} = [0.0]
-    Istim::Float64 = 0.0
+    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Inoise::Vector{Float64} = [0.0]
+    #Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean = true # boolean of adaptation or not
     OU_process::OU_process = OU_process()
     name::String
-    Iexc_save::Array{Float64} = [0.0]
-    Iinh_save::Array{Float64} = [0.0]
-    Ioutput_save::Array{Float64} = [0.0]
-    Itot_save::Array{Float64} = [0.0]
-    Inoise_save::Array{Float64} = [0.0]
-    r_save::Array{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
+    r_save::Vector{Float64} = [0.0]
 end
 
-@with_kw mutable struct gaba_syn <: synapses
+
+@with_kw mutable struct dynamique_gaba_syn <: dynamique_variables_synapses
+    s::Float64 = 0.0
+    u::Float64 = 1.0/2.5
+    d::Float64 = 1.0/2.5
+end
+
+@with_kw struct gaba_syn <: synapses
+    dynamique_variables::dynamique_gaba_syn = dynamique_gaba_syn()
     τ::Float64 = 5 * 0.001 #s (except for dendrites)
     neuron_pre::neuron
     neuron_post::neuron
     γ::Float64 =  2
     g::Float64
-    s::Float64 = 0.0
+    #s::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     facilitation = false
-    u::Float64=1.0/2.5
+    #u::MVector{1,Float64} = @MVector [1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param = facilitation_parameters()
     d_param = depression_parameters()
-    d::Float64=1.0/2.5
+    #d::MVector{1,Float64} = @MVector [1.0/2.5]
     depression = false
     name::String
-    s_save::Array{Float64} = [0.0]
-    u_save::Array{Float64}=[1.0/2.5]
-    d_save::Array{Float64}=[1.0/2.5]
+    s_save::Vector{Float64} = [0.0]
+    u_save::Vector{Float64}=[1.0/2.5]
+    d_save::Vector{Float64}=[1.0/2.5]
 end
 
 
-@with_kw mutable struct facilitation_parameters
+# @with_kw struct global_synapse <: synapses
+#     dynamique_variables::dynamique_gaba_syn = dynamique_gaba_syn()
+
+
+# end
+
+# @with_kw struct state_of_synapse
+
+
+# end
+
+
+
+@with_kw struct facilitation_parameters
     U::Float64 = 0.2
     τ::Float64 = 1.5 # secondes
     dt::Float64 = 0.0005
 end
 
-@with_kw mutable struct depression_parameters
+@with_kw struct depression_parameters
     fD::Float64 = 0.2
     τ::Float64 = 0.5 # secondes
     dt::Float64 = 0.0005
 end
 
 
-@with_kw mutable struct ampa_syn <: synapses
+@with_kw mutable struct dynamique_ampa_syn <: dynamique_variables_synapses
+    s::Float64 = 0.0
+    u::Float64 = 1.0/2.5
+    d::Float64 = 1.0/2.5
+end
+
+@with_kw struct ampa_syn <: synapses
+    dynamique_varables::dynamique_ampa_syn = dynamique_ampa_syn()
     τ::Float64 = 2 * 0.001 #s
     neuron_pre::neuron
     neuron_post::neuron
     γ::Float64 = 5
     g::Float64
-    s::Float64 = 0.0
+    #s::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     facilitation = false
-    u::Float64=1.0/2.5
+    #u::MVector{1,Float64} = @MVector [1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param = facilitation_parameters()
     d_param = depression_parameters()
-    d::Float64=1.0/2.5
+    #d::MVector{1,Float64} = @MVector [1.0/2.5]
     depression = false
     name::String
-    s_save::Array{Float64} = [0.0]
-    u_save::Array{Float64}=[1.0/2.5]
-    d_save::Array{Float64}=[1.0/2.5]
+    s_save::Vector{Float64} = [0.0]
+    u_save::Vector{Float64}=[1.0/2.5]
+    d_save::Vector{Float64}=[1.0/2.5]
 end
 
-@with_kw mutable struct nmda_syn <: synapses
+
+@with_kw mutable struct dynamique_nmda_syn <: dynamique_variables_synapses
+    s::Float64 = 0.0
+    u::Float64 = 1.0/2.5
+    d::Float64 = 1.0/2.5
+end
+
+
+
+@with_kw struct nmda_syn <: synapses
+    dynamique_variables::dynamique_nmda_syn = dynamique_nmda_syn()
     neuron_pre::neuron
     neuron_post::neuron
     γ::Float64 = 0.641 * 2
     τ::Float64 = 60 * 0.001 #s
     g::Float64
-    s::Float64 = 0.0
+    #s::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     facilitation = false
-    u::Float64=1.0/2.5
+    #u::MVector{1,Float64} = @MVector [1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param = facilitation_parameters()
     d_param = depression_parameters()
-    d::Float64=0.3
+    #d::MVector{1,Float64} = @MVector [0.3]
     depression = false
     name::String
-    s_save::Array{Float64} = [0.0]
-    u_save::Array{Float64}=[1.0/2.5]
-    d_save::Array{Float64}=[1.0/2.5]
+    s_save::Vector{Float64} = [0.0]
+    u_save::Vector{Float64}=[1.0/2.5]
+    d_save::Vector{Float64}=[1.0/2.5]
 end
 
 
 
 @with_kw mutable struct microcircuit
-    list_soma::Array{pyr_cell}= []
-    list_sst::Array{sst_cell} = []
-    list_vip::Array{vip_cell} = []
-    list_pv::Array{pv_cell} = []
-    list_dend::Array{dendrite} = []
-    nn::Array{wong_wang_network} = []
-    list_integrator::Array{neural_integrator} = []
+    list_soma::Vector{pyr_cell}= Vector{pyr_cell}()
+    list_sst::Vector{local_circuit_interneuron} = []
+    list_vip::Vector{vip_cell} = []
+    list_pv::Vector{pv_cell} = []
+    list_dend::Vector{dendrite} = []
+    nn::Vector{wong_wang_network} = []
+    list_integrator::Vector{neural_integrator} = []
     name::String = "microciruit"
 end
 

@@ -4,7 +4,9 @@ using DrWatson
 using JLD2
 using Parameters
 
-export create_network
+using ..BasicFunctions
+
+export create_network, construct_two_local_microcircuit_integrator
 
 module GeneralConstruction
 
@@ -126,6 +128,8 @@ using .attractor_network_construction
 module local_microcircuit_network
 
 using Base: list_append!!
+using ...BasicFunctions
+
 using ...NeuronalStructures.NeuralNetwork
 using ..GeneralConstruction
 using ...NeuronalStructures.local_circuit
@@ -133,6 +137,7 @@ using ...NeuronalStructures.attractor_network
 using ...NeuronalStructures.RateDendrites
 
 using ..attractor_network_construction
+
 
 using DrWatson
 
@@ -430,12 +435,14 @@ end
 function construct_one_local_microcircuit_integrator!(c::microcircuit; dend_param=dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.19624, 0.0), facilitation=false, adaptation=false, depression=false, td_to_vip=true,integrator_tc = 0.8, time_tot = 1000)
     # once the network will be setup with more microcuicuit. It will be necessary to add the microcircuit in the name
 
-vip1 = vip_cell(name=string(c.name, "-", "vipcell1"), Ibg=0.25, OU_process = OU_process(noise=zeros(time_tot)))
-sst1 = sst_cell(name=string(c.name, "-", "sstcell1"), Ibg=0.25, adaptation_boolean=true), OU_process = OU_process(noise=zeros(time_tot))
-pv1 = pv_cell(name=string(c.name, "-", "pvcell1"), Ibg=0.29, OU_process = OU_process(noise=zeros(time_tot)))
-dend1 = dend_sigmoid(param_c=dend_param, name=string(c.name, "-", "dend1"), OU_process = OU_process(noise=zeros(time_tot)))
-E1 = soma_PC(den=dend1, adaptation_boolean=adaptation, name=string(c.name, "-", "ecell1"), OU_process = OU_process(noise=zeros(time_tot)))
-integrator1 = neural_integrator(τ = integrator_tc, name=string(c.name, "-", "integrator1"), OU_process = OU_process(noise=zeros(time_tot)))
+vip1 = vip_cell(name=string(c.name, "-", "vipcell1"), Ibg=0.25, OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
+
+sst1 = sst_cell_with_adaptation(name=string(c.name, "-", "sstcell1"), Ibg=0.25, adaptation_boolean=true, OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
+
+pv1 = pv_cell(name=string(c.name, "-", "pvcell1"), Ibg=0.29, OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
+dend1 = dend_sigmoid(param_c=dend_param, name=string(c.name, "-", "dend1"), OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
+E1 = soma_PC(den=dend1, adaptation_boolean=adaptation, name=string(c.name, "-", "ecell1"), OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
+integrator1 = neural_integrator(τ = integrator_tc, name=string(c.name, "-", "integrator1"), OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
     
 create_process!(vip1.OU_process)
 create_process!(sst1.OU_process)
