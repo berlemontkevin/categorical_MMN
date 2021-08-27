@@ -15,7 +15,7 @@ export dendrite_input_output!, update_firing!
 
 
 export sum_input!, current_to_frequency!, update_dend!, full_time_dynamics
-export current_synapses!
+export current_synapses!, synapse_derivative, update_adaptation!
 
 module GeneralDynamicalFunctions
 
@@ -99,7 +99,7 @@ using ...BasicFunctions
 
 export dendrite_input_output!, sum_input!, current_to_frequency!, update_firing!, synapse_derivative, current_synapses!, update_dend!
 export update_firing!
-
+export update_syn!, update_adaptation!
 
 function dendrite_input_output!(d::dend_Sean2020)
     # dendridic function
@@ -153,16 +153,18 @@ end
 
 # end
 
-function sum_input!(n::T where {T<: local_circuit_interneuron_with_adaptation}, index::Int64 )
+function sum_input!(n::T where {T<: local_circuit_interneuron}, index::Int64 )
   #  push!(n.Inoise, n.OU_process.noise[index]) #TODO pre-create noise terms
 
-    
+    if n.adaptation_boolean
         update_adaptation!(n, n.dt)
        
      #   Iadapt = 
         @inbounds n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.adaptation.gA * n.adaptation.sA[1]
    #     push!(n.Itot_save , n.dynamique_variables.Itot)
-
+    else
+        @inbounds n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim 
+    end
   
 
 end
@@ -193,17 +195,17 @@ end
 function sum_input!(n::soma_PC,index::Int64)
    # push!(n.Inoise, n.OU_process.noise[index])
 
-    #if n.adaptation_boolean
+    if n.adaptation_boolean
         update_adaptation!(n, n.dt)
       
         #Iadapt = n.adaptation.gA * n.adaptation.sA
         @inbounds  n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.den.dynamique_variables.Ioutput + n.adaptation.gA * n.adaptation.sA[1]
        # push!(n.Itot_save , n.dynamique_variables.Itot)
 
-    # else
+     else
     #     @inbounds  n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.den.dynamique_variables.Ioutput
     #   #  push!(n.Itot_save , n.dynamique_variables.Itot)
-    # end
+     end
     return
 end
 
@@ -267,15 +269,15 @@ end
 
 function synapse_derivative(s::ampa_syn)
     if s.facilitation
-        @fastmath  s.dynamique_variables.u += s.f_param.dt*((s.f_param.U - s.dynamique_variables.u)/s.f_param.τ + s.f_param.U*(1.0 - s.dynamique_variables.u)*s.neuron_pre.dynamique_variables.r)
+        @fastmath  s.dynamique_variables.u += s.f_param.dt*((s.f_param.U - s.dynamique_variables.u)/s.f_param.τ + s.f_param.U*(1.0 - s.dynamique_variables.u)*s.dynamique_variables.fr_pre)
         #push!(s.u_save,s.dynamique_variables.u)
-        return  -s.dynamique_variables.s/s.τ + s.γ*s.mult*s.dynamique_variables.u*s.neuron_pre.dynamique_variables.r
+        return  -s.dynamique_variables.s/s.τ + s.γ*s.mult*s.dynamique_variables.u*s.dynamique_variables.fr_pre
     elseif s.depression
-        @fastmath  s.dynamique_variables.d += s.f_param.dt*((1.0 - s.dynamique_variables.d)/s.f_param.τ - s.dynamique_variables.d*(1.0 - s.d_param.fD)*s.neuron_pre.dynamique_variables.r)
+        @fastmath  s.dynamique_variables.d += s.f_param.dt*((1.0 - s.dynamique_variables.d)/s.f_param.τ - s.dynamique_variables.d*(1.0 - s.d_param.fD)*s.dynamique_variables.fr_pre)
         #push!(s.d_save,s.dynamique_variables.d)
-        return  -s.dynamique_variables.s/s.τ + s.γ*s.mult*s.dynamique_variables.d*s.neuron_pre.dynamique_variables.r
+        return  -s.dynamique_variables.s/s.τ + s.γ*s.mult*s.dynamique_variables.d*s.dynamique_variables.fr_pre
     else
-        return  -s.dynamique_variables.s/s.τ + s.γ*s.neuron_pre.dynamique_variables.r
+        return  -s.dynamique_variables.s/s.τ + s.γ*s.dynamique_variables.fr_pre
     end
 
 end
@@ -283,24 +285,24 @@ end
 
 function synapse_derivative(s::gaba_syn)
     #paper Sean: Inhibition onto the dendrites is slower than inhibition elsewhere (ali and Thomson 2008)
-    return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*s.neuron_pre.dynamique_variables.r
+    return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*s.dynamique_variables.fr_pre
 
 end
 
 
 function synapse_derivative(s::nmda_syn)
     if s.facilitation
-        @fastmath s.dynamique_variables.u += s.f_param.dt*((s.f_param.U - s.dynamique_variables.u)/s.f_param.τ + s.f_param.U*(1.0 - s.dynamique_variables.u)*s.neuron_pre.dynamique_variables.r)
+        @fastmath s.dynamique_variables.u += s.f_param.dt*((s.f_param.U - s.dynamique_variables.u)/s.f_param.τ + s.f_param.U*(1.0 - s.dynamique_variables.u)*s.dynamique_variables.fr_pre)
        # push!(s.u_save,s.dynamique_variables.u)
         
-        return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*(1.0 - s.dynamique_variables.s)*s.dynamique_variables.u*s.mult*s.neuron_pre.dynamique_variables.r
+        return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*(1.0 - s.dynamique_variables.s)*s.dynamique_variables.u*s.mult*s.dynamique_variables.fr_pre
     elseif s.depression
-        @fastmath s.dynamique_variables.d += s.f_param.dt*((1.0 - s.dynamique_variables.d)/s.f_param.τ - s.dynamique_variables.d*(1.0 - s.d_param.fD)*s.neuron_pre.dynamique_variables.r)
+        @fastmath s.dynamique_variables.d += s.f_param.dt*((1.0 - s.dynamique_variables.d)/s.f_param.τ - s.dynamique_variables.d*(1.0 - s.d_param.fD)*s.dynamique_variables.fr_pre)
       #  push!(s.d_save,s.dynamique_variables.d)
 
-        return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*s.mult*s.dynamique_variables.d*s.neuron_pre.dynamique_variables.r
+        return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*s.mult*s.dynamique_variables.d*s.dynamique_variables.fr_pre
     else
-        return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*(1.0 - s.dynamique_variables.s)*s.neuron_pre.dynamique_variables.r
+        return  @fastmath -s.dynamique_variables.s/s.τ + s.γ*(1.0 - s.dynamique_variables.s)*s.dynamique_variables.fr_pre
     end
 
 end
@@ -308,18 +310,41 @@ end
 function current_synapses!(ln::Vector{N} where N <: neuron,d::Dict{String, Vector{Float64}},index::Int64)
     #compute the sum of syn currents
     # separe in two the currents (due to the dendrites)
-for n in ln
+for n in ln #j=1:length(ln)
 
-    n.dynamique_variables.Iexc =0.0
-    n.dynamique_variables.Iinh =0.0
+   n.dynamique_variables.Iexc =0.0
+   n.dynamique_variables.Iinh =0.0
 
-    @simd for s in n.list_syn
-        if s.g <0.0
-             n.dynamique_variables.Iinh += s.g * s.dynamique_variables.s
-        else
+    @simd for s in n.list_syn_post_nmda
              n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
-        end
     end
+
+    # @simd for i=1:length(ln[j].list_syn_post_nmda)
+    #     ln[j].dynamique_variables.Iexc += ln[j].list_syn_post_nmda[i].g * ln[j].list_syn_post_nmda[i].dynamique_variables.s
+      
+    # end
+
+
+    @simd for s in n.list_syn_post_gaba
+             n.dynamique_variables.Iinh += s.g * s.dynamique_variables.s
+   
+    end
+
+    # @simd for i=1:length(ln[j].list_syn_post_gaba)
+    #     ln[j].dynamique_variables.Iinh += ln[j].list_syn_post_gaba[i].g * ln[j].list_syn_post_gaba[i].dynamique_variables.s
+    # end
+
+
+    @simd for s in n.list_syn_post_ampa
+             n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
+      
+    end
+
+#     @simd for i=1:length(ln[j].list_syn_post_ampa)
+#         ln[j].dynamique_variables.Iexc += ln[j].list_syn_post_ampa[i].g * ln[j].list_syn_post_ampa[i].dynamique_variables.s
+  
+# end
+
 
    # push!(n.Iexc_save , n.dynamique_variables.Iexc)
    # push!(n.Iinh_save , n.dynamique_variables.Iinh)
@@ -341,21 +366,71 @@ function add_current!(gain::Float64, s_dyn::Float64, Iexc::Float64, Iinh::Float6
 end
 
 
-function current_synapses!(n::dend_sigmoid, list_syn::Vector{T} where T<: synapses)
+function current_synapses!(n::dend_sigmoid)
     #compute the sum of syn currents
     # separe in two the currents (due to the dendrites)
+
+    # n.dynamique_variables.Iexc =0.0
+    # n.dynamique_variables.Iinh =0.0
+
+    #  for s in n.list_syn_post_nmda
+    #     # if s.g < 0.0
+    #     #    n.dynamique_variables.Iinh += s.g * s.dynamique_variables.s
+    #     # else
+    #     #     n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
+    #     # end
+    #     add_current!(s.g, s.dynamique_variables.s, n.dynamique_variables.Iexc, n.dynamique_variables.Iinh)
+    # end
+    # for s in n.list_syn_post_ampa
+    #     # if s.g < 0.0
+    #     #    n.dynamique_variables.Iinh += s.g * s.dynamique_variables.s
+    #     # else
+    #     #     n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
+    #     # end
+    #     add_current!(s.g, s.dynamique_variables.s, n.dynamique_variables.Iexc, n.dynamique_variables.Iinh)
+    # end
+    # for s in n.list_syn_post_gaba
+    #     # if s.g < 0.0
+    #     #    n.dynamique_variables.Iinh += s.g * s.dynamique_variables.s
+    #     # else
+    #     #     n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
+    #     # end
+    #     add_current!(s.g, s.dynamique_variables.s, n.dynamique_variables.Iexc, n.dynamique_variables.Iinh)
+    # end
 
     n.dynamique_variables.Iexc =0.0
     n.dynamique_variables.Iinh =0.0
 
-     for s in list_syn
-        # if s.g < 0.0
-        #    n.dynamique_variables.Iinh += s.g * s.dynamique_variables.s
-        # else
-        #     n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
-        # end
-        add_current!(s.g, s.dynamique_variables.s, n.dynamique_variables.Iexc, n.dynamique_variables.Iinh)
+    @simd for s in n.list_syn_post_nmda
+             n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
+        end
+
+    # @simd for i=1:length(n.list_syn_post_nmda)
+    #         n.dynamique_variables.Iexc += n.list_syn_post_nmda[i].g * n.list_syn_post_nmda[i].dynamique_variables.s
+      
+    # end
+
+
+    
+
+    @simd for s in n.list_syn_post_gaba
+             n.dynamique_variables.Iinh += s.g * s.dynamique_variables.s
     end
+
+    # @simd for i=1:length(n.list_syn_post_gaba)
+    #         n.dynamique_variables.Iinh += n.list_syn_post_gaba[i].g * n.list_syn_post_gaba[i].dynamique_variables.s
+    # end
+
+
+    @simd for s in n.list_syn_post_ampa
+             n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
+    end
+
+    # @simd for i=1:length(n.list_syn_post_ampa)
+    #     n.dynamique_variables.Iexc += n.list_syn_post_ampa[i].g * n.list_syn_post_ampa[i].dynamique_variables.s
+  
+end
+
 
     # push!(n.Iexc_save , n.dynamique_variables.Iexc)
     # push!(n.Iinh_save , n.dynamique_variables.Iinh)
@@ -383,7 +458,7 @@ end
 
 
 function update_dend!(d::dend_sigmoid, index::Int64)
-    current_synapses!(d, d.list_syn)
+    current_synapses!(d)
     #update_process!(d.OU_process)
     @inbounds d.dynamique_variables.Iexc += d.OU_process.noise[index] + d.dynamique_variables.Istim + d.dynamique_variables.Ibg
     d.dynamique_variables.Itot = d.dynamique_variables.Iexc + d.dynamique_variables.Iinh
@@ -398,6 +473,22 @@ function update_adaptation!(n::T where T <:neuron, dt::Float64)
   #  push!(adapt.sA_save, adapt.sA)
 
 end
+
+
+function update_syn!(n::T where T <: neuron)
+
+    for s in n.list_syn_pre_ampa
+        s.dynamique_variables.fr_pre = n.dynamique_variables.r
+    end
+    for s in n.list_syn_pre_gaba
+        s.dynamique_variables.fr_pre = n.dynamique_variables.r
+    end
+    for s in n.list_syn_pre_nmda
+    s.dynamique_variables.fr_pre = n.dynamique_variables.r
+    end
+
+end
+
 
 
 end
@@ -435,11 +526,22 @@ function time_step(c::microcircuit,sim::simulation_parameters)
 
     for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
         for n in pop
-            @simd for s in n.list_syn
+            @simd for s in n.list_syn_post_ampa
                 s.dynamique_variables.s += s.dt * synapse_derivative(s)
            #     push!(s.s_save , s.dynamique_variables.s)
 
             end
+            @simd for s in n.list_syn_post_gaba
+                s.dynamique_variables.s += s.dt * synapse_derivative(s)
+           #     push!(s.s_save , s.dynamique_variables.s)
+
+            end
+            @simd for s in n.list_syn_post_nmda
+                s.dynamique_variables.s += s.dt * synapse_derivative(s)
+           #     push!(s.s_save , s.dynamique_variables.s)
+
+            end
+
         end
 
     end
@@ -480,6 +582,9 @@ function time_step(c::microcircuit,sim::simulation_parameters)
     update_firing!.(c.list_pv)
     update_firing!.(c.list_integrator)
 
+
+# here I update the firing rate value stored in 
+
     @simd for nn in c.nn
       #  for n in nn.list_units
        #     current_synapses!(n)
@@ -505,10 +610,22 @@ function time_step(l_c::Vector{microcircuit},sim::simulation_parameters, d::Dict
     for c in l_c
     for pop in [c.list_pv, c.list_dend, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
         for n in pop
-           @simd for s in n.list_syn
-                
-             s.dynamique_variables.s +=  s.dt * synapse_derivative(s)
-         #     push!(s.s_save,s.dynamique_variables.s)
+            @simd for s in n.list_syn_post_ampa
+                s.dynamique_variables.s += s.dt * synapse_derivative(s)
+           #     push!(s.s_save , s.dynamique_variables.s)
+
+            end
+            @simd for s in n.list_syn_post_gaba
+                s.dynamique_variables.s += s.dt * synapse_derivative(s)
+           #     push!(s.s_save , s.dynamique_variables.s)
+
+            end
+
+            
+            @simd for s in n.list_syn_post_nmda
+                s.dynamique_variables.s += s.dt * synapse_derivative(s)
+           #     push!(s.s_save , s.dynamique_variables.s)
+
             end
         end
 
@@ -550,6 +667,11 @@ function time_step(l_c::Vector{microcircuit},sim::simulation_parameters, d::Dict
     update_firing!.(c.list_pv)
     update_firing!.(c.list_integrator)
 
+    update_syn!.(c.list_soma)
+    update_syn!.(c.list_vip)
+    update_syn!.(c.list_sst)
+    update_syn!.(c.list_pv)
+    update_syn!.(c.list_integrator)
 
 end
 end

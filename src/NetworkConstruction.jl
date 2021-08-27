@@ -437,7 +437,7 @@ function construct_one_local_microcircuit_integrator!(c::microcircuit; dend_para
 
 vip1 = vip_cell(name=string(c.name, "-", "vipcell1"), Ibg=0.25, OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
 
-sst1 = sst_cell_with_adaptation(name=string(c.name, "-", "sstcell1"), Ibg=0.25, adaptation_boolean=true, OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
+sst1 = sst_cell(name=string(c.name, "-", "sstcell1"), Ibg=0.25, adaptation_boolean=true, OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
 
 pv1 = pv_cell(name=string(c.name, "-", "pvcell1"), Ibg=0.29, OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
 dend1 = dend_sigmoid(param_c=dend_param, name=string(c.name, "-", "dend1"), OU_process = BasicFunctions.OU_process(noise=zeros(time_tot)))
@@ -451,32 +451,90 @@ create_process!(dend1.OU_process)
 create_process!(E1.OU_process)
 create_process!(integrator1.OU_process)
 
-push!(dend1.list_syn, gaba_syn(τ=10 * 0.001, neuron_pre=sst1, neuron_post=dend1, g=-0.09, name=string(c.name, "-", "sst1-to-dend1")))# 0.09
-push!(E1.list_syn, gaba_syn(neuron_pre=pv1, neuron_post=E1, g=-0.001, depression=true, name=string(c.name, "-", "pv1-to-ecell1")))# -0.001
-push!(E1.list_syn, nmda_syn(neuron_pre=E1, neuron_post=E1, g=0.18, name=string(c.name, "-", "ecell1-to-ecell1")))
-    
-push!(vip1.list_syn, nmda_syn(neuron_pre=E1, neuron_post=vip1, g=0.058, depression=true, name=string(c.name, "-", "ecell1-to-vip1")))
-push!(vip1.list_syn, gaba_syn(neuron_pre=sst1, neuron_post=vip1, g=-0.1, facilitation=true, name=string(c.name, "-", "sst1-to-vip1")))
-    
-push!(sst1.list_syn, nmda_syn(neuron_pre=E1, neuron_post=sst1, g=0.0435, facilitation=true, name=string(c.name, "-", "ecell1-to-sst1")))
-push!(sst1.list_syn, gaba_syn(neuron_pre=vip1, neuron_post=sst1, g=-0.05, facilitation=true, name=string(c.name, "-", "ss1-to-dend1")))
-    
-push!(pv1.list_syn, nmda_syn(neuron_pre=E1, neuron_post=pv1, g=0.04435, depression=true, name=string(c.name, "-", "ecell1-to-pv1")))# 0.0435
-push!(pv1.list_syn, gaba_syn(neuron_pre=sst1, neuron_post=pv1, g=-0.17, name=string(c.name, "-", "sst1-to-pv1")))# -0.17
-push!(pv1.list_syn, gaba_syn(neuron_pre=pv1, neuron_post=pv1, g=-0.18, name=string(c.name, "-", "pv1-to-pv1")))
-    
-       
-   
-push!(vip1.list_syn, nmda_syn(neuron_pre=integrator1, neuron_post=vip1, g=0.47, depression=depression, name=string(c.name, "-", "integrator1-to-vip1")))
-push!(pv1.list_syn, nmda_syn(neuron_pre=integrator1, neuron_post=pv1, g=0.31, depression=depression, name=string(c.name, "-", "integrator1-to-pv1")))
-    
-        
-push!(sst1.list_syn, nmda_syn(neuron_pre=integrator1, neuron_post=sst1, g=0.22, facilitation=facilitation, name=string(c.name, "-", "integrator1-to-sst1")))
-        
-push!(integrator1.list_syn, nmda_syn(neuron_pre=E1, neuron_post=integrator1, g=0.15, name=string(c.name, "-", "ecell1-to-integrator1")))
+dend1_gaba = gaba_syn(τ=10 * 0.001, g=-0.09, name=string(c.name, "-", "sst1-to-dend1"))
+push!(dend1.list_syn_post_gaba,dend1_gaba)# 0.09
+push!(sst1.list_syn_pre_gaba,dend1_gaba)# 0.09
 
-push!(dend1.list_syn, nmda_syn(neuron_pre=integrator1, neuron_post=dend1, g=0.4, depression=true, name=string(c.name, "-", "integrator1-to-dend1")))	
-        
+# gaba_syn(τ=10 * 0.001, neuron_pre=sst1, neuron_post=dend1, g=-0.09, name=string(c.name, "-", "sst1-to-dend1"))
+
+#gaba_syn(neuron_pre=pv1, neuron_post=E1, g=-0.001, depression=true, name=string(c.name, "-", "pv1-to-ecell1"))
+E1_gabe = gaba_syn(g=-0.001, depression=true, name=string(c.name, "-", "pv1-to-ecell1"))
+push!(E1.list_syn_post_gaba, E1_gabe)# -0.001
+push!(pv1.list_syn_pre_gaba, E1_gabe)# -0.001
+
+
+#nmda_syn(neuron_pre=E1, neuron_post=E1, g=0.18, name=string(c.name, "-", "ecell1-to-ecell1"))
+E1_nmda = nmda_syn(g=0.18, name=string(c.name, "-", "ecell1-to-ecell1"))
+push!(E1.list_syn_pre_nmda,E1_nmda)
+push!(E1.list_syn_post_nmda,E1_nmda)
+
+
+
+    #nmda_syn(neuron_pre=E1, neuron_post=vip1, g=0.058, depression=true, name=string(c.name, "-", "ecell1-to-vip1"))
+    vip1_nmda = nmda_syn(g=0.058, depression=true, name=string(c.name, "-", "ecell1-to-vip1"))
+push!(vip1.list_syn_post_nmda, vip1_nmda)
+push!(E1.list_syn_pre_nmda, vip1_nmda)
+
+
+#aba_syn(neuron_pre=sst1, neuron_post=vip1, g=-0.1, facilitation=true, name=string(c.name, "-", "sst1-to-vip1"))
+vip1_gaba = gaba_syn( g=-0.1, facilitation=true, name=string(c.name, "-", "sst1-to-vip1"))
+push!(vip1.list_syn_post_gaba, vip1_gaba)
+push!(sst1.list_syn_pre_gaba, vip1_gaba)
+    
+
+
+# nmda_syn(neuron_pre=E1, neuron_post=sst1, g=0.0435, facilitation=true, name=string(c.name, "-", "ecell1-to-sst1"))
+sst1_nmda = nmda_syn( g=0.0435, facilitation=true, name=string(c.name, "-", "ecell1-to-sst1"))
+push!(sst1.list_syn_post_nmda, sst1_nmda)
+push!(E1.list_syn_pre_nmda, sst1_nmda)
+
+#gaba_syn(neuron_pre=vip1, neuron_post=sst1, g=-0.05, facilitation=true, name=string(c.name, "-", "ss1-to-dend1"))
+sstvip_gaba = gaba_syn(g=-0.05, facilitation=true, name=string(c.name, "-", "ss1-to-dend1"))
+push!(sst1.list_syn_post_gaba, sstvip_gaba)
+push!(vip1.list_syn_pre_gaba, sstvip_gaba)
+
+
+#nmda_syn(neuron_pre=E1, neuron_post=pv1, g=0.04435, depression=true, name=string(c.name, "-", "ecell1-to-pv1"))
+pvE1_nmda = nmda_syn(g=0.04435, depression=true, name=string(c.name, "-", "ecell1-to-pv1"))
+push!(pv1.list_syn_post_nmda, pvE1_nmda)# 0.0435
+push!(E1.list_syn_pre_nmda, pvE1_nmda)# 0.0435
+
+#gaba_syn(neuron_pre=sst1, neuron_post=pv1, g=-0.17, name=string(c.name, "-", "sst1-to-pv1"))
+pvsst_gaba = gaba_syn(g=-0.17, name=string(c.name, "-", "sst1-to-pv1"))
+push!(pv1.list_syn_post_gaba, pvsst_gaba)# -0.17
+push!(sst1.list_syn_pre_gaba, pvsst_gaba)# -0.17
+
+#gaba_syn(neuron_pre=pv1, neuron_post=pv1, g=-0.18, name=string(c.name, "-", "pv1-to-pv1"))
+pvpv_gaba = gaba_syn(g=-0.18, name=string(c.name, "-", "pv1-to-pv1"))
+push!(pv1.list_syn_post_gaba, pvpv_gaba)
+push!(pv1.list_syn_pre_gaba, pvpv_gaba)
+
+       
+#nmda_syn(neuron_pre=integrator1, neuron_post=vip1, g=0.47, depression=depression, name=string(c.name, "-", "integrator1-to-vip1"))
+vipint_nmda = nmda_syn(g=0.47, depression=depression, name=string(c.name, "-", "integrator1-to-vip1"))
+push!(vip1.list_syn_post_nmda, vipint_nmda)
+push!(integrator1.list_syn_pre_nmda, vipint_nmda)
+
+#nmda_syn(neuron_pre=integrator1, neuron_post=pv1, g=0.31, depression=depression, name=string(c.name, "-", "integrator1-to-pv1"))
+pvint_nmda = nmda_syn( g=0.31, depression=depression, name=string(c.name, "-", "integrator1-to-pv1"))
+push!(pv1.list_syn_post_nmda, pvint_nmda)
+push!(integrator1.list_syn_pre_nmda, pvint_nmda)
+
+#nmda_syn(neuron_pre=integrator1, neuron_post=sst1, g=0.22, facilitation=facilitation, name=string(c.name, "-", "integrator1-to-sst1"))
+sstint_nmda = nmda_syn( g=0.22, facilitation=facilitation, name=string(c.name, "-", "integrator1-to-sst1"))
+push!(sst1.list_syn_post_nmda, sstint_nmda)
+push!(integrator1.list_syn_pre_nmda, sstint_nmda)
+
+#nmda_syn(neuron_pre=E1, neuron_post=integrator1, g=0.15, name=string(c.name, "-", "ecell1-to-integrator1"))
+intE_nmda = nmda_syn(g=0.15, name=string(c.name, "-", "ecell1-to-integrator1"))
+push!(integrator1.list_syn_post_nmda, intE_nmda)
+push!(E1.list_syn_pre_nmda, intE_nmda)
+
+# nmda_syn(neuron_pre=integrator1, neuron_post=dend1, g=0.4, depression=true, name=string(c.name, "-", "integrator1-to-dend1"))
+dendint_nmda = nmda_syn( g=0.4, depression=true, name=string(c.name, "-", "integrator1-to-dend1"))
+push!(dend1.list_syn_post_nmda, dendint_nmda)	
+push!(integrator1.list_syn_pre_nmda, dendint_nmda)	
+
         
 push!(c.list_dend, dend1)
   
@@ -506,12 +564,26 @@ c2 = microcircuit(name="microcircuit2")
 construct_one_local_microcircuit_integrator!(c1; dend_param, facilitation, adaptation, td_to_vip, depression, integrator_tc = τ_integrator, time_tot = time_tot)
 construct_one_local_microcircuit_integrator!(c2; dend_param, facilitation, adaptation, td_to_vip, depression, integrator_tc = τ_integrator, time_tot = time_tot)
 
+#nmda_syn(neuron_pre=c2.list_soma[1], neuron_post=c1.list_sst[1], g=0.0435, facilitation=true, name=string("ecell2-to-sst1"))
+sst1so2 = nmda_syn(g=0.0435, facilitation=true, name=string("ecell2-to-sst1"))
+push!(c1.list_sst[1].list_syn_post_nmda, sst1so2)
+push!(c2.list_soma[1].list_syn_pre_nmda, sst1so2)
 
-push!(c1.list_sst[1].list_syn, nmda_syn(neuron_pre=c2.list_soma[1], neuron_post=c1.list_sst[1], g=0.0435, facilitation=true, name=string("ecell2-to-sst1")))
-push!(c2.list_sst[1].list_syn, nmda_syn(neuron_pre=c1.list_soma[1], neuron_post=c2.list_sst[1], g=0.0435, facilitation=true, name=string("ecell1-to-sst2")))
+# nmda_syn(neuron_pre=c1.list_soma[1], neuron_post=c2.list_sst[1], g=0.0435, facilitation=true, name=string("ecell1-to-sst2"))
+sst2so1 = nmda_syn(g=0.0435, facilitation=true, name=string("ecell1-to-sst2"))
+push!(c2.list_sst[1].list_syn_post_nmda, sst2so1)
+push!(c1.list_soma[1].list_syn_pre_nmda, sst2so1)
 
-push!(c1.list_dend[1].list_syn, nmda_syn(neuron_pre=c2.list_integrator[1], neuron_post=c1.list_dend[1], g=0.1, depression=true, name=string("integrator2-to-ecell1")))
-push!(c2.list_dend[1].list_syn, nmda_syn(neuron_pre=c1.list_integrator[1], neuron_post=c2.list_dend[1], g=0.1, depression=true, name=string("integrator1-to-ecell2")))
+
+# nmda_syn(neuron_pre=c2.list_integrator[1], neuron_post=c1.list_dend[1], g=0.1, depression=true, name=string("integrator2-to-ecell1"))
+dend1int2 = nmda_syn( g=0.1, depression=true, name=string("integrator2-to-ecell1"))
+push!(c1.list_dend[1].list_syn_post_nmda, dend1int2)
+push!(c2.list_integrator[1].list_syn_pre_nmda, dend1int2)
+
+# nmda_syn(neuron_pre=c1.list_integrator[1], neuron_post=c2.list_dend[1], g=0.1, depression=true, name=string("integrator1-to-ecell2"))
+dend2int1 = nmda_syn(g=0.1, depression=true, name=string("integrator1-to-ecell2"))
+push!(c2.list_dend[1].list_syn_post_nmda,dend2int1)
+push!(c1.list_integrator[1].list_syn_pre_nmda, dend2int1)
 
         
         
