@@ -433,7 +433,7 @@ function current_synapses!(n::dend_sigmoid)
     # @simd for i=1:length(n.list_syn_post_ampa)
     #     n.dynamique_variables.Iexc += n.list_syn_post_ampa[i].g * n.list_syn_post_ampa[i].dynamique_variables.s
   
-end
+# end
 
 
     # push!(n.Iexc_save , n.dynamique_variables.Iexc)
@@ -495,10 +495,10 @@ end
 
 
 
-# end
-# using .local_circuit_functions
+end
+using .local_circuit_functions
 
-# module time_dynamics
+module time_dynamics
 
 
 using ...NeuronalStructures.attractor_network
@@ -512,7 +512,7 @@ using ...NeuronalStructures.AbstractNeuronalTypes
 using ...NeuronalStructures.RateDendrites
 using ...NeuronalStructures.local_circuit
 
-#using ..local_circuit_functions
+using ..local_circuit_functions
 #using ..attractor_network_functions
 
 using ...BasicFunctions
@@ -730,9 +730,9 @@ end
 
     
 end
-# using .time_dynamics
+using .time_dynamics
 
-using .local_circuit_functions
+# using .GeneralDynamicalFunctions#.local_circuit_functions
 
 
 end
