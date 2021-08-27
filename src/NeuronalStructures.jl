@@ -4,11 +4,15 @@ using StaticArrays
 export simulation_parameters
 
 export dendrites_param_sigmoid, dend_sigmoid, soma_PC
+export dend_sigmoid, dendrite
 export neural_integrator, microcircuit
 export get_dynamics,save_dynamics
 export vip_cell, pv_cell, sst_cell
 export gaba_syn, ampa_syn, nmda_syn
 export sst_cell_with_adaptation
+
+export neuron
+
 ##############################################################################################################
 # Abstract types
 ###############################################################################################################
@@ -305,6 +309,9 @@ module local_circuit
 # let's start with only one dendrites
 using Parameters, StaticArrays
 using ..AbstractNeuronalTypes, ..attractor_network, ..EqDiffMethod, ...BasicFunctions, ..NeuralNetwork, ..RateDendrites
+export dendrites_param, soma_Sean2020, dend_Sean2020, dendrites_param_sigmoid, dend_sigmoid, adaptation_variables
+export dynamique_soma_PC, dynamique_dend_sigmoid
+export soma_PC, neural_integrator
 export pv_cell, sst_cell, vip_cell, gaba_syn, ampa_syn,nmda_syn, local_circuit_interneuron
 export local_circuit_interneuron_with_adaptation, local_circuit_interneuron_without_adaptation, dynamique_variables_interneurons, dynamique_variables_synapses
 abstract type excitatory_synapse <: synapses end
@@ -321,9 +328,7 @@ export sst_cell_with_adaptation
 
 using DataFrames, DrWatson,CSV#,CSVFiles
 
-export dendrites_param, soma_Sean2020, dend_Sean2020, dendrites_param_sigmoid, dend_sigmoid, adaptation_variables
-export dynamique_soma_PC, dynamique_dend_sigmoid
-export soma_PC, neural_integrator
+
 # inputs to the rate model will be the time average total conductance of exc and inh synapses
 
 

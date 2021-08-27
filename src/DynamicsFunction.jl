@@ -8,6 +8,7 @@ using Parameters, StaticArrays
 
 
 using ..BasicFunctions
+using ..NeuronalStructures
 
 export simulation_step!,time_step
 
@@ -16,6 +17,9 @@ export dendrite_input_output!, update_firing!
 
 export sum_input!, current_to_frequency!, update_dend!, full_time_dynamics
 export current_synapses!, synapse_derivative, update_adaptation!
+
+
+
 
 module GeneralDynamicalFunctions
 
@@ -80,7 +84,7 @@ using .GeneralDynamicalFunctions
 
 module local_circuit_functions
 
-using ...NeuronalStructures.local_circuit
+#using ...NeuronalStructures
 using ...NeuronalStructures.EqDiffMethod
 using ...NeuronalStructures.NeuralNetwork
 using Parameters, StaticArrays
@@ -101,13 +105,13 @@ export dendrite_input_output!, sum_input!, current_to_frequency!, update_firing!
 export update_firing!
 export update_syn!, update_adaptation!
 
-function dendrite_input_output!(d::dend_Sean2020)
-    # dendridic function
-    @unpack  c1,c2,c3,c4,c5,c6 =  d.param_c 
-    @fastmath β = c5*exp(-d.Iinh[end]/c6)
+# function dendrite_input_output!(d::dend_Sean2020)
+#     # dendridic function
+#     @unpack  c1,c2,c3,c4,c5,c6 =  d.param_c 
+#     @fastmath β = c5*exp(-d.Iinh[end]/c6)
 
-    @fastmath push!(d.Ioutput , c1*(tanh((d.Iexc[end] +c3*d.Iinh[end] + c4)/β)) + c2)
-end
+#     @fastmath push!(d.Ioutput , c1*(tanh((d.Iexc[end] +c3*d.Iinh[end] + c4)/β)) + c2)
+# end
 
 #TODO : struct d'une dendrite prenant en argument le type de dendrite
 
@@ -439,12 +443,12 @@ end
 
 
 
-function update_dend!(d::dend_Sean2020)
-    current_synapses!(d)
-    update_process!(d.OU_process)
-    @. d.Iexc += d.Inoise[end] + d.Istim + d.Ibg
-    dendrite_input_output!(d)
-end
+# function update_dend!(d::dend_Sean2020)
+#     current_synapses!(d)
+#     update_process!(d.OU_process)
+#     @. d.Iexc += d.Inoise[end] + d.Istim + d.Ibg
+#     dendrite_input_output!(d)
+# end
 
 function update_dend!(d::dend_sigmoid)
     current_synapses!(d, d.list_syn)
@@ -491,10 +495,10 @@ end
 
 
 
-end
-using .local_circuit_functions
+# end
+# using .local_circuit_functions
 
-module time_dynamics
+# module time_dynamics
 
 
 using ...NeuronalStructures.attractor_network
@@ -508,7 +512,7 @@ using ...NeuronalStructures.AbstractNeuronalTypes
 using ...NeuronalStructures.RateDendrites
 using ...NeuronalStructures.local_circuit
 
-using ..local_circuit_functions
+#using ..local_circuit_functions
 #using ..attractor_network_functions
 
 using ...BasicFunctions
@@ -726,7 +730,9 @@ end
 
     
 end
-using .time_dynamics
+# using .time_dynamics
+
+using .local_circuit_functions
 
 
 end
