@@ -14,7 +14,7 @@ module BasicFunctions
 """
 function rect_linear(x::Float64)
     #temp = max(0, x)
-    return max(0, x)
+    return max(0.0, x)
 end
 
 
@@ -76,9 +76,9 @@ end
 
 function create_process!(s_process::OU_process)
 
-    tot = length(s_process.noise)
-    r_tot = randn(tot)
-    for i=2:tot
+   # tot = length(s_process.noise)
+    r_tot = randn(length(s_process.noise))
+    for i=2:length(s_process.noise)
        @fastmath @inbounds s_process.noise[i] =s_process.noise[i-1] +  s_process.dt / s_process.τ * (-s_process.noise[i-1]+ sqrt(s_process.τ*s_process.σ*s_process.σ)*r_tot[i])
     end
    

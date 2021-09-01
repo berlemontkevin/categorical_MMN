@@ -350,6 +350,7 @@ end
     u::Float64 = 1.0/2.5
     d::Float64 = 1.0/2.5
     fr_pre::Float64 = 0.0
+    ds::Float64 = 0.0
 end
 
 @with_kw mutable struct dynamique_gaba_syn <: dynamique_variables_synapses

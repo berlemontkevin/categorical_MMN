@@ -199,13 +199,24 @@ end
     
 
 general_args = Dict(
-    "τ_integrator" => collect(0.1:0.5:3.0),
-	"f1" => collect(0.5:0.1:0.9),
+    "τ_integrator" => collect(0.1:0.2:3.0),#collect(0.1:3.0:16.0),#collect(0.1:0.2:3.0),
+	"f1" => collect(0.6:0.1:0.9),#min was 0.5
 	"value_stim_f1" => collect(0.1:0.1:0.6),
-	"Tinter" => collect(0.2:0.3:15.0),
+	"Tinter" => collect(0.2:0.3:15.0),#collect(16.0:1.0:20.0),#
 	"Tstim" => 0.5,
-	"Tfin" => 300.0,
+	"Tfin" => 1.0,
 	"value_stim_f2" => 0.0    
 )
 dicts = dict_list(general_args)
 map(map_from_dict, dicts)
+
+
+# general_args = Dict(
+#     "τ_integrator" => collect(0.1:0.3:3.0) or 0.2,
+# 	"f1" => collect(0.5:0.1:0.9),
+# 	"value_stim_f1" => collect(0.1:0.1:0.6),
+# 	"Tinter" => collect(0.2:0.3:15.0),
+# 	"Tstim" => 0.5,
+# 	"Tfin" => 300.0,
+# 	"value_stim_f2" => 0.0    
+# )
