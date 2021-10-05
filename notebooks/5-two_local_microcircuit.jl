@@ -40,87 +40,87 @@ md""" # Setup of the network
 begin
 	
 
-#TODO add name field to microcircuit
-function construct_one_local_microcircuit_integrator!(c::microcircuit; dend_param = dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.19624, 0.0), facilitation = false, adaptation = false, depression = false, td_to_vip = true)
-    # once the network will be setup with more microcuicuit. It will be necessary to add the microcircuit in the name
+# #TODO add name field to microcircuit
+# function construct_one_local_microcircuit_integrator!(c::microcircuit; dend_param = dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.19624, 0.0), facilitation = false, adaptation = false, depression = false, td_to_vip = true)
+#     # once the network will be setup with more microcuicuit. It will be necessary to add the microcircuit in the name
 
-    vip1 = vip_cell(name = string(c.name, "-","vipcell1"),Ibg = 0.25)
-    sst1 = sst_cell(name = string(c.name, "-","sstcell1"), Ibg = 0.25,adaptation_boolean = true)
-    pv1 = pv_cell(name = string(c.name, "-","pvcell1"), Ibg = 0.29)
-    dend1 = dend_sigmoid(param_c = dend_param,name = string(c.name, "-","dend1"))
-    E1 = soma_PC(den=dend1, adaptation_boolean = adaptation,name = string(c.name, "-","ecell1"))
-    integrator1 = neural_integrator(name = string(c.name, "-","integrator1"))
+#     vip1 = vip_cell(name = string(c.name, "-","vipcell1"),Ibg = 0.25)
+#     sst1 = sst_cell(name = string(c.name, "-","sstcell1"), Ibg = 0.25,adaptation_boolean = true)
+#     pv1 = pv_cell(name = string(c.name, "-","pvcell1"), Ibg = 0.29)
+#     dend1 = dend_sigmoid(param_c = dend_param,name = string(c.name, "-","dend1"))
+#     E1 = soma_PC(den=dend1, adaptation_boolean = adaptation,name = string(c.name, "-","ecell1"))
+#     integrator1 = neural_integrator(name = string(c.name, "-","integrator1"))
     
     
-    push!(dend1.list_syn, gaba_syn(τ = 10*0.001, neuron_pre=sst1,neuron_post=dend1, g = -0.09, name = string(c.name, "-","sst1-to-dend1")))#0.09
-    push!(E1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=E1, g = -0.001,depression = true, name = string(c.name, "-","pv1-to-ecell1")))#-0.001
-    push!(E1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=E1, g = 0.18, name = string(c.name, "-","ecell1-to-ecell1")))
+#     push!(dend1.list_syn, gaba_syn(τ = 10*0.001, neuron_pre=sst1,neuron_post=dend1, g = -0.09, name = string(c.name, "-","sst1-to-dend1")))#0.09
+#     push!(E1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=E1, g = -0.001,depression = true, name = string(c.name, "-","pv1-to-ecell1")))#-0.001
+#     push!(E1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=E1, g = 0.18, name = string(c.name, "-","ecell1-to-ecell1")))
     
-    push!(vip1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=vip1, g = 0.058, depression = true, name = string(c.name, "-","ecell1-to-vip1")))
-    push!(vip1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=vip1, g = -0.1, facilitation = true, name = string(c.name, "-","sst1-to-vip1")))
+#     push!(vip1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=vip1, g = 0.058, depression = true, name = string(c.name, "-","ecell1-to-vip1")))
+#     push!(vip1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=vip1, g = -0.1, facilitation = true, name = string(c.name, "-","sst1-to-vip1")))
     
-    push!(sst1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=sst1, g = 0.0435, facilitation = true, name = string(c.name, "-","ecell1-to-sst1")))
-    push!(sst1.list_syn, gaba_syn(neuron_pre=vip1,neuron_post=sst1, g = -0.05, facilitation = true, name = string(c.name, "-","ss1-to-dend1")))
+#     push!(sst1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=sst1, g = 0.0435, facilitation = true, name = string(c.name, "-","ecell1-to-sst1")))
+#     push!(sst1.list_syn, gaba_syn(neuron_pre=vip1,neuron_post=sst1, g = -0.05, facilitation = true, name = string(c.name, "-","ss1-to-dend1")))
     
-    push!(pv1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=pv1, g = 0.04435, depression = true, name = string(c.name, "-","ecell1-to-pv1")))#0.0435
-    push!(pv1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=pv1, g = -0.17, name = string(c.name, "-","sst1-to-pv1")))#-0.17
-    push!(pv1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=pv1, g = -0.18, name = string(c.name, "-","pv1-to-pv1")))
+#     push!(pv1.list_syn, nmda_syn(neuron_pre=E1,neuron_post=pv1, g = 0.04435, depression = true, name = string(c.name, "-","ecell1-to-pv1")))#0.0435
+#     push!(pv1.list_syn, gaba_syn(neuron_pre=sst1,neuron_post=pv1, g = -0.17, name = string(c.name, "-","sst1-to-pv1")))#-0.17
+#     push!(pv1.list_syn, gaba_syn(neuron_pre=pv1,neuron_post=pv1, g = -0.18, name = string(c.name, "-","pv1-to-pv1")))
     
        
    
-        push!(vip1.list_syn,nmda_syn(neuron_pre=integrator1,neuron_post=vip1, g = 0.47, depression = depression, name = string(c.name, "-","integrator1-to-vip1")))
-    push!(pv1.list_syn,nmda_syn(neuron_pre=integrator1,neuron_post=pv1, g = 0.31, depression = depression, name = string(c.name, "-","integrator1-to-pv1")))
+#         push!(vip1.list_syn,nmda_syn(neuron_pre=integrator1,neuron_post=vip1, g = 0.47, depression = depression, name = string(c.name, "-","integrator1-to-vip1")))
+#     push!(pv1.list_syn,nmda_syn(neuron_pre=integrator1,neuron_post=pv1, g = 0.31, depression = depression, name = string(c.name, "-","integrator1-to-pv1")))
     
 		
-		push!(sst1.list_syn,nmda_syn(neuron_pre=integrator1,neuron_post=sst1, g = 0.22, facilitation = facilitation, name = string(c.name, "-","integrator1-to-sst1")))
+# 		push!(sst1.list_syn,nmda_syn(neuron_pre=integrator1,neuron_post=sst1, g = 0.22, facilitation = facilitation, name = string(c.name, "-","integrator1-to-sst1")))
 		
-    push!(integrator1.list_syn, nmda_syn(neuron_pre = E1, neuron_post = integrator1, g = 0.15, name = string(c.name, "-","ecell1-to-integrator1")))
+#     push!(integrator1.list_syn, nmda_syn(neuron_pre = E1, neuron_post = integrator1, g = 0.15, name = string(c.name, "-","ecell1-to-integrator1")))
 
-	    push!(dend1.list_syn, nmda_syn(neuron_pre = integrator1, neuron_post = dend1, g = 0.4,depression = true, name = string(c.name, "-","integrator1-to-dend1")))	
+# 	    push!(dend1.list_syn, nmda_syn(neuron_pre = integrator1, neuron_post = dend1, g = 0.4,depression = true, name = string(c.name, "-","integrator1-to-dend1")))	
 		
 		
-    push!(c.list_dend,dend1)
+#     push!(c.list_dend,dend1)
   
-    push!(c.list_soma,E1)
+#     push!(c.list_soma,E1)
    
-    push!(c.list_vip,vip1)
+#     push!(c.list_vip,vip1)
   
-    push!(c.list_sst,sst1)
+#     push!(c.list_sst,sst1)
   
-    push!(c.list_pv,pv1)
+#     push!(c.list_pv,pv1)
 
-    push!(c.list_integrator,integrator1)
-
-
-
-end
-
-#TODO add a list of microcircuit as argument to the dynamics functions
-
-function construct_two_local_microcircuit_integrator(; dend_param = dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.19624, 0.0), facilitation = false, adaptation = false, depression = false, td_to_vip = true)
-    # once the network will be setup with more microcuicuit. It will be necessary to add the microcircuit in the name
+#     push!(c.list_integrator,integrator1)
 
 
-    c1 = microcircuit(name="microcircuit1")
-    c2 = microcircuit(name = "microcircuit2")
+
+# end
+
+# #TODO add a list of microcircuit as argument to the dynamics functions
+
+# function construct_two_local_microcircuit_integrator(; dend_param = dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.19624, 0.0), facilitation = false, adaptation = false, depression = false, td_to_vip = true)
+#     # once the network will be setup with more microcuicuit. It will be necessary to add the microcircuit in the name
+
+
+#     c1 = microcircuit(name="microcircuit1")
+#     c2 = microcircuit(name = "microcircuit2")
     
-    construct_one_local_microcircuit_integrator!(c1; dend_param, facilitation, adaptation, td_to_vip, depression)
-    construct_one_local_microcircuit_integrator!(c2; dend_param, facilitation, adaptation, td_to_vip, depression)
+#     construct_one_local_microcircuit_integrator!(c1; dend_param, facilitation, adaptation, td_to_vip, depression)
+#     construct_one_local_microcircuit_integrator!(c2; dend_param, facilitation, adaptation, td_to_vip, depression)
 
 
-    push!(c1.list_sst[1].list_syn, nmda_syn(neuron_pre=c2.list_soma[1],neuron_post=c1.list_sst[1], g = 0.0435, facilitation = true, name = string("ecell2-to-sst1")))
-    push!(c2.list_sst[1].list_syn, nmda_syn(neuron_pre=c1.list_soma[1],neuron_post=c2.list_sst[1], g = 0.0435, facilitation = true, name = string("ecell1-to-sst2")))
+#     push!(c1.list_sst[1].list_syn, nmda_syn(neuron_pre=c2.list_soma[1],neuron_post=c1.list_sst[1], g = 0.0435, facilitation = true, name = string("ecell2-to-sst1")))
+#     push!(c2.list_sst[1].list_syn, nmda_syn(neuron_pre=c1.list_soma[1],neuron_post=c2.list_sst[1], g = 0.0435, facilitation = true, name = string("ecell1-to-sst2")))
 
-   push!(c1.list_dend[1].list_syn, nmda_syn(neuron_pre=c2.list_integrator[1],neuron_post=c1.list_dend[1], g = 0.1, depression = true, name = string("integrator2-to-ecell1")))
-     push!(c2.list_dend[1].list_syn, nmda_syn(neuron_pre=c1.list_integrator[1],neuron_post=c2.list_dend[1], g = 0.1, depression = true, name = string("integrator1-to-ecell2")))
+#    push!(c1.list_dend[1].list_syn, nmda_syn(neuron_pre=c2.list_integrator[1],neuron_post=c1.list_dend[1], g = 0.1, depression = true, name = string("integrator2-to-ecell1")))
+#      push!(c2.list_dend[1].list_syn, nmda_syn(neuron_pre=c1.list_integrator[1],neuron_post=c2.list_dend[1], g = 0.1, depression = true, name = string("integrator1-to-ecell2")))
 
 		
 		
 		
-    list_microcircuit = [c1,c2]
+#     list_microcircuit = [c1,c2]
 
-    return list_microcircuit
-end
+#     return list_microcircuit
+# end
 
 	
 	

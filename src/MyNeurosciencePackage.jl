@@ -3,7 +3,7 @@ module MyNeurosciencePackage
 
 include(".\\BasicFunctions.jl")
 using .BasicFunctions
-export heaviside,rect_linear, sigmoid, create_process!, OU_process
+export heaviside,rect_linear, sigmoid, create_process!, OU_process, update_process!
 
 include(".\\NeuronalStructures.jl")
 using .NeuronalStructures
@@ -26,15 +26,18 @@ export update_syn!
 include(".\\NetworkConstruction.jl")
 using .NetworkConstruction
 export create_network, construct_two_local_microcircuit_integrator
+export create_deterministic_oddball, create_deterministic_oscillations_oddball
+export construct_two_local_microcircuit_integrator_full_param
+
 
 include(".\\PlotFunctions.jl")
 using .PlotFunctions
-export plot_local_circuit
+export plot_local_circuit, plot_local_circuit_synapses
 
 
 include(".\\DataAnalysis.jl")
 using .DataAnalysis
-export get_mean_firing_rate
+export get_mean_firing_rate, compute_MMN_oddball, compute_MMN_time
 
 #include(".\\Plasticity.jl")
 #using .Plasticity

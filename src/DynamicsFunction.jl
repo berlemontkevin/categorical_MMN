@@ -107,7 +107,7 @@ function dendrite_input_output!(d::dend_sigmoid)
     
     @fastmath d.dynamique_variables.Ioutput = c1 * (-0.5 + sigmoid((d.dynamique_variables.Iexc - c2 * d.dynamique_variables.Iinh + c6 ) / (c3 * d.dynamique_variables.Iinh + c4))) + c5
     
-   # push!(d.Ioutput_save, d.dynamique_variables.Ioutput)
+   push!(d.Ioutput_save, d.dynamique_variables.Ioutput)
 
 end
 
@@ -118,7 +118,7 @@ function sum_input!(n::T where {T <: local_circuit_interneuron}, index::Int64)
         update_adaptation!(n)
        
         @inbounds n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.adaptation.gA * n.adaptation.sA[1]
-   #     push!(n.Itot_save , n.dynamique_variables.Itot)
+       push!(n.Itot_save , n.dynamique_variables.Itot)
     else
         @inbounds n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim 
     end
@@ -133,11 +133,11 @@ function sum_input!(n::soma_PC, index::Int64)
         update_adaptation!(n)
       
         @inbounds  n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.den.dynamique_variables.Ioutput + n.adaptation.gA * n.adaptation.sA[1]
-       # push!(n.Itot_save , n.dynamique_variables.Itot)
+         push!(n.Itot_save , n.dynamique_variables.Itot)
 
     else
         @inbounds  n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.den.dynamique_variables.Ioutput
-    #   #  push!(n.Itot_save , n.dynamique_variables.Itot)
+        push!(n.Itot_save , n.dynamique_variables.Itot)
     end
     return
 end
@@ -145,8 +145,8 @@ end
 
 
 function sum_input!(n::neural_integrator, index::Int64)
-    @inbounds n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim 
-    # push!(n.Itot_save , n.dynamique_variables.Itot )
+    n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim 
+    push!(n.Itot_save , n.dynamique_variables.Itot )
 end
 
 
@@ -206,13 +206,13 @@ end
 function synapse_derivative(s::ampa_syn)
     if s.facilitation
         @fastmath  s.dynamique_variables.u += s.f_param.dt * ((s.f_param.U - s.dynamique_variables.u) / s.f_param.τ + s.f_param.U * (1.0 - s.dynamique_variables.u) * s.dynamique_variables.fr_pre)
-        # push!(s.u_save,s.dynamique_variables.u)
+        push!(s.u_save,s.dynamique_variables.u)
         @fastmath s.dynamique_variables.ds =  -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.u * s.dynamique_variables.fr_pre
 
         s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
     elseif s.depression
         @fastmath  s.dynamique_variables.d += s.f_param.dt * ((1.0 - s.dynamique_variables.d) / s.f_param.τ - s.dynamique_variables.d * (1.0 - s.d_param.fD) * s.dynamique_variables.fr_pre)
-        # push!(s.d_save,s.dynamique_variables.d)
+        push!(s.d_save,s.dynamique_variables.d)
          @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.d * s.dynamique_variables.fr_pre
 
          s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
@@ -221,6 +221,7 @@ function synapse_derivative(s::ampa_syn)
 
          s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
     end
+    push!(s.s_save,s.dynamique_variables.s)
 nothing
 end
 
@@ -230,7 +231,7 @@ function synapse_derivative(s::gaba_syn)
     s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ  + s.γ * s.dynamique_variables.fr_pre
 
     s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-
+    push!(s.s_save,s.dynamique_variables.s)
 nothing
 end
 
@@ -238,14 +239,14 @@ end
 function synapse_derivative(s::nmda_syn)
     if s.facilitation
         @fastmath s.dynamique_variables.u += s.f_param.dt * ((s.f_param.U - s.dynamique_variables.u) / s.f_param.τ + s.f_param.U * (1.0 - s.dynamique_variables.u) * s.dynamique_variables.fr_pre)
-       # push!(s.u_save,s.dynamique_variables.u)
+       push!(s.u_save,s.dynamique_variables.u)
        @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * (1.0 - s.dynamique_variables.s) * s.dynamique_variables.u * s.mult * s.dynamique_variables.fr_pre
         
        s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
 
     elseif s.depression
         @fastmath s.dynamique_variables.d += s.f_param.dt * ((1.0 - s.dynamique_variables.d) / s.f_param.τ - s.dynamique_variables.d * (1.0 - s.d_param.fD) * s.dynamique_variables.fr_pre)
-      #  push!(s.d_save,s.dynamique_variables.d)
+        push!(s.d_save,s.dynamique_variables.d)
 
         @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.d * s.dynamique_variables.fr_pre
     
@@ -255,6 +256,8 @@ function synapse_derivative(s::nmda_syn)
         
         s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
     end
+    push!(s.s_save,s.dynamique_variables.s)
+
 nothing
 
 end
@@ -288,9 +291,9 @@ function current_synapses!(n::neuron, d::Dict{String,Vector{Float64}}, index::In
 
 
 
-   # push!(n.Iexc_save , n.dynamique_variables.Iexc)
-   # push!(n.Iinh_save , n.dynamique_variables.Iinh)
-        @inbounds  n.dynamique_variables.Istim = d[n.name][index]
+    push!(n.Iexc_save , n.dynamique_variables.Iexc)
+    push!(n.Iinh_save , n.dynamique_variables.Iinh)
+    @inbounds  n.dynamique_variables.Istim = d[n.name][index]
    
     # end
     return
@@ -328,8 +331,8 @@ function current_synapses!(n::dend_sigmoid)
     end
 
 
-    # push!(n.Iexc_save , n.dynamique_variables.Iexc)
-    # push!(n.Iinh_save , n.dynamique_variables.Iinh)
+    push!(n.Iexc_save , n.dynamique_variables.Iexc)
+    push!(n.Iinh_save , n.dynamique_variables.Iinh)
     return
 end
 
@@ -339,7 +342,7 @@ function update_dend!(d::dend_sigmoid, index::Int64)
     @inbounds d.dynamique_variables.Iexc += d.OU_process.noise[index] + d.dynamique_variables.Istim + d.dynamique_variables.Ibg
 
     d.dynamique_variables.Itot = d.dynamique_variables.Iexc + d.dynamique_variables.Iinh
-   # push!(d.Itot_save, d.dynamique_variables.Itot)
+    push!(d.Itot_save, d.dynamique_variables.Itot)
     
     dendrite_input_output!(d)
 end
@@ -347,7 +350,7 @@ end
 
 function update_adaptation!(n::T where T <: neuron)
     @fastmath @inbounds  @. n.adaptation.sA += n.dt * (-n.adaptation.sA / n.adaptation.τA + n.dynamique_variables.r)
-  #  push!(adapt.sA_save, adapt.sA)
+    push!(n.adaptation.sA_save, n.adaptation.sA[1])
 
 end
 
@@ -642,7 +645,7 @@ function full_time_dynamics(l_c::Vector{microcircuit}, sim::simulation_parameter
     list_time = 0.0:sim.dt:(sim.dt * length(d[l_c[1].list_soma[1].name]))
    
 
-    for index = 2:length(list_time[2:end]) 
+    for index = 2:length(list_time[1:end-1]) 
          time_step(l_c, sim, d, index)
     end
     # TODO: do a nice return function for this dynamics

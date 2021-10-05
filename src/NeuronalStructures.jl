@@ -326,7 +326,9 @@ export save_dynamics, get_dynamics
 export sst_cell_with_adaptation    
 
 
-using DataFrames, DrWatson,CSV#,CSVFiles
+using DataFrames, DrWatson#,CSV#,CSVFiles
+
+
 
 
 # inputs to the rate model will be the time average total conductance of exc and inh synapses
@@ -527,11 +529,11 @@ end
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
     name::String = "temp"
-    #Iexc_save::Vector{Float64} = [0.0]
-    #Iinh_save::Vector{Float64} = [0.0]
-    #Ioutput_save::Vector{Float64} = [0.0]
-    #Itot_save::Vector{Float64} = [0.0]
-    #Inoise_save::Vector{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
     dynamique_variables::dynamique_dend_sigmoid = dynamique_dend_sigmoid()
   end
 
@@ -585,11 +587,11 @@ end
     adaptation::adaptation_variables = adaptation_variables()
     adaptation_boolean::Bool = false # boolean of adaptation or not
     name::String
-    #Iexc_save::Vector{Float64} = [0.0]
-    #Iinh_save::Vector{Float64} = [0.0]
-    #Ioutput_save::Vector{Float64} = [0.0]
-    #Itot_save::Vector{Float64} = [0.0]
-    #Inoise_save::Vector{Float64} = [0.0]
+    Iexc_save::Vector{Float64} = [0.0]
+    Iinh_save::Vector{Float64} = [0.0]
+    Ioutput_save::Vector{Float64} = [0.0]
+    Itot_save::Vector{Float64} = [0.0]
+    Inoise_save::Vector{Float64} = [0.0]
     r_save::Vector{Float64} = [0.0]
 
 end

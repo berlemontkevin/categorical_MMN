@@ -31,7 +31,7 @@
 # both standard output and standard error are directed to the same file.
 # It will be placed in the directory I submitted the job from and will
 # have a name like slurm_12345.out
-#SBATCH --output=slurm_%j.out
+SBATCH --output=slurm_%j.out
  
 # once the first non-comment, non-SBATCH-directive line is encountered, SLURM
 # stops looking for SBATCH directives. The remainder of the script is  executed

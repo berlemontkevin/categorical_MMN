@@ -5,7 +5,7 @@ module BasicFunctions
     export heaviside
     export f_I_Abott
     export OU_process
-    export update_process!, create_process!
+    export create_process!, update_process!
 
 """
     Function: rect_linear
@@ -79,7 +79,7 @@ function create_process!(s_process::OU_process)
    # tot = length(s_process.noise)
     r_tot = randn(length(s_process.noise))
     for i=2:length(s_process.noise)
-       @fastmath @inbounds s_process.noise[i] =s_process.noise[i-1] +  s_process.dt / s_process.τ * (-s_process.noise[i-1]+ sqrt(s_process.τ*s_process.σ*s_process.σ)*r_tot[i])
+       s_process.noise[i] =s_process.noise[i-1] +  s_process.dt / s_process.τ * (-s_process.noise[i-1])+ sqrt( s_process.dt / s_process.τ)*s_process.σ*r_tot[i]
     end
    
 end
