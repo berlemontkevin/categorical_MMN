@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.0
+# v0.16.1
 
 using Markdown
 using InteractiveUtils
@@ -107,7 +107,9 @@ end
 # ╔═╡ b3bbd648-8b82-414b-ae39-5cf70f70f06a
 begin
 	lc,oddball,sim = run_simu1_script(params)
-fig = plot_local_circuit(lc, sim, oddball, params)
+	fig = plot_local_circuit(lc, sim, oddball, params)
+	save(plotsdir("notebook9-oddballparadigm.png"), fig) # output size = 800 x 600 pixels
+fig
 end
 
 # ╔═╡ fd27c550-f629-48ef-b804-71319d9532ec
@@ -134,29 +136,29 @@ begin
 	
 	
 	
-	for (i,num) in enumerate(num_list)
-		for (k,τ) in enumerate(τ_list)
-			for (j,T) in enumerate(Tinter_list)
+# 	for (i,num) in enumerate(num_list)
+# 		for (k,τ) in enumerate(τ_list)
+# 			for (j,T) in enumerate(Tinter_list)
 			
-				params_list = Dict(
-	"number_repetitions" => num,
-    "τ_integrator" => τ,
-	"value_stim_f1" => 0.2,
-	"Tinter" => T,#
-	"Tstim" => 0.5,
-	"Tfin" => 1.0,
-	"value_stim_f2" => 0.0,    
-	"initial_time" => 4.0
-)
+# 				params_list = Dict(
+# 	"number_repetitions" => num,
+#     "τ_integrator" => τ,
+# 	"value_stim_f1" => 0.2,
+# 	"Tinter" => T,#
+# 	"Tstim" => 0.5,
+# 	"Tfin" => 1.0,
+# 	"value_stim_f2" => 0.0,    
+# 	"initial_time" => 4.0
+# )
 					
-		lc,oddball,sim = run_simu1_script(params_list)
+# 		lc,oddball,sim = run_simu1_script(params_list)
 
-	tot_MMN[i,k,j] =compute_MMN_oddball(lc,oddball,params_list)
-	end
+# 	tot_MMN[i,k,j] =compute_MMN_oddball(lc,oddball,params_list)
+# 	end
 				
-		end
+# 		end
 		
-	end
+# 	end
 	
 	
 	
@@ -227,8 +229,8 @@ begin
 	ax_hm.ylabel = "Tinter (s)"
 	heatmap_fixed_τ
 	
-	
-	
+	save(plotsdir("notebook9-heatmap_τ=$value_heatmap.png"),heatmap_fixed_τ)
+	heatmap_fixed_τ
 end
 
 # ╔═╡ b616c49e-7051-45bf-8515-88e19f5c7b4b
@@ -250,7 +252,7 @@ begin
 	SupTitle_Tinter = Label(heatmap_fixed_Tinter[0,1:2], "Heatmap of MMN - Tinter integrator = $value_heatmap_Tinter s")
 	ax_hm_Tinter.xlabel = "Number of repetitions"
 	ax_hm_Tinter.ylabel = "τ integrator"
-	
+	save(plotsdir("notebook9-heatmap_Tinter=$value_heatmap_Tinter.png"),heatmap_fixed_Tinter)
 	heatmap_fixed_Tinter
 	
 	
@@ -276,6 +278,8 @@ begin
 	SupTitle_rep = Label(heatmap_fixed_rep[0,1:2], "Heatmap of MMN - Number of repetitions = $value_heatmap_rep ")
 	ax_hm_rep.xlabel= "τ integrator"
 	ax_hm_rep.ylabel = "Tinter (s)"
+	
+	save(plotsdir("notebook9-heatmap_rep=$value_heatmap_rep.png"),heatmap_fixed_rep)
 	heatmap_fixed_rep
 	
 	
@@ -288,6 +292,26 @@ begin
 	temp = compute_MMN_time(lc,oddball, params)
 	lines(temp)
 end
+
+# ╔═╡ 43b7c57c-8d07-4590-bae0-a93d92cb2478
+temp[50]
+
+# ╔═╡ 0c9e9a3b-c3cf-4bcc-b3ad-f8c6f6103d17
+md""" # Cutting off some connectivities
+
+"""
+
+# ╔═╡ cd30528d-997d-4fcb-b8df-115e01ab5ee3
+
+
+# ╔═╡ b1f796c2-a937-4f5b-bf2b-6225361f85ba
+
+
+# ╔═╡ 9655a270-7533-4fdd-a368-37cfe2fe4fd9
+
+
+# ╔═╡ 5d8a17e1-db3e-4997-873c-035f09295fb1
+
 
 # ╔═╡ 7f957bd0-b28b-4327-9ccd-d578f729a013
 begin
@@ -375,7 +399,7 @@ length(stim_1)
 # ╠═9fd2c4b4-975b-45b4-9901-5c22180ce984
 # ╠═859449c2-238e-430c-aebc-0d226314df0b
 # ╠═eab23a48-c873-408b-91da-5c208a82f117
-# ╟─70649557-de48-424d-ada1-12e6c5540417
+# ╠═70649557-de48-424d-ada1-12e6c5540417
 # ╠═b3bbd648-8b82-414b-ae39-5cf70f70f06a
 # ╠═fd27c550-f629-48ef-b804-71319d9532ec
 # ╠═6a0d37bf-f458-4273-909d-4f06e440b0fe
@@ -386,12 +410,18 @@ length(stim_1)
 # ╠═9435048e-f62c-40cc-8fe1-622f2ee3fe7f
 # ╠═f488eb2a-c827-4ba2-b74d-7d7d5d42b5ad
 # ╟─fe8683fe-b658-4088-b27c-7b72b4626997
-# ╟─715e4e5c-28b9-4cb9-94fa-1644970903af
+# ╠═715e4e5c-28b9-4cb9-94fa-1644970903af
 # ╟─b616c49e-7051-45bf-8515-88e19f5c7b4b
-# ╟─3aed38b3-fa55-4f55-8e42-023bf59d35f8
+# ╠═3aed38b3-fa55-4f55-8e42-023bf59d35f8
 # ╟─8d0df090-562e-433e-a9b8-e95934a6876d
 # ╟─68878b41-c4ee-4260-bc38-34449d3b8dbb
 # ╠═f2a23925-983d-4469-bf3f-84ab1204efa8
+# ╠═43b7c57c-8d07-4590-bae0-a93d92cb2478
+# ╠═0c9e9a3b-c3cf-4bcc-b3ad-f8c6f6103d17
+# ╠═cd30528d-997d-4fcb-b8df-115e01ab5ee3
+# ╠═b1f796c2-a937-4f5b-bf2b-6225361f85ba
+# ╠═9655a270-7533-4fdd-a368-37cfe2fe4fd9
+# ╠═5d8a17e1-db3e-4997-873c-035f09295fb1
 # ╠═7f957bd0-b28b-4327-9ccd-d578f729a013
 # ╠═3939c616-87e0-4dc4-897a-c4ada55208f7
 # ╠═81b87579-e082-4162-923c-86877df27222

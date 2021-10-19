@@ -17,7 +17,7 @@ function plot_local_circuit(lc::Array{microcircuit},sim::simulation_parameters,l
     noto_sans_bold = assetpath("fonts", "NotoSans-Bold.ttf")
     fig = Figure(backgroundcolor = RGBf0(0.98, 0.98, 0.98),
             resolution = (2000, 1000), font = noto_sans)
-    ax1 = fig[1, 1] = Axis(fig, title = "Submodule 1")
+    ax1 = fig[1, 1] = Axis(fig, title = "Submodule 1",xlabel="Time (s)", ylabel="Firing rate (Hz)")
 
     time = 0.0:sim.dt:(sim.dt*(length(list_current[lc[1].list_soma[1].name])-1))
     
@@ -27,17 +27,17 @@ function plot_local_circuit(lc::Array{microcircuit},sim::simulation_parameters,l
     vip1 = lines!(ax1,time,lc[1].list_vip[1].r_save, color=:green, linewidth=2,label="VIP")
     pv1 = lines!(ax1,time,lc[1].list_pv[1].r_save, color=:orange, linewidth=2,label="PV")
     sst1 = lines!(ax1,time,lc[1].list_sst[1].r_save, color=:red, linewidth=2,label="SST")
-    int1 = lines!(ax1,time,lc[1].list_integrator[1].r_save, color=:purple,linewidth=2)
+    int1 = lines!(ax1,time,lc[1].list_integrator[1].r_save, color=:purple,linewidth=4)
     
     
     
-    ax2 = fig[1, 2] = Axis(fig, title = "Submodule 2")
+    ax2 = fig[1, 2] = Axis(fig, title = "Submodule 2",xlabel="Time (s)", ylabel="Firing rate (Hz)")
 
     pc2 = lines!(ax2,time,lc[2].list_soma[1].r_save, color=:blue, linewidth=2,label="PC")
     vip2 = lines!(ax2,time,lc[2].list_vip[1].r_save, color=:green, linewidth=2,label="VIP")
     pv2 = lines!(ax2,time,lc[2].list_pv[1].r_save, color=:orange, linewidth=2,label="PV")
     sst2 = lines!(ax2,time,lc[2].list_sst[1].r_save, color=:red, linewidth=2,label="SST")
-    int2 = lines!(ax2,time,lc[2].list_integrator[1].r_save, color=:purple,linewidth=2)
+    int2 = lines!(ax2,time,lc[2].list_integrator[1].r_save, color=:purple,linewidth=4)
 
     
 #     ax3 = fig[3,1] = Axis(fig, title = "Currents to Ecells")
@@ -47,7 +47,7 @@ function plot_local_circuit(lc::Array{microcircuit},sim::simulation_parameters,l
     
     leg = fig[1, end+1] = Legend(fig,
                             [pc1,vip1,pv1,sst1,int1],
-                            ["PC", "VIP", "PV", "SST","Integrator"])
+                            ["PC", "VIP", "PV", "SST","Integrator"],labelsize = 30)
     
     ylims!(ax1,0,max_yaxis + 10.0)
     ylims!(ax2,0,max_yaxis + 10.0)
@@ -66,6 +66,55 @@ function plot_local_circuit(lc::Array{microcircuit},sim::simulation_parameters,l
     return fig
 end
 
+
+function plot_local_circuit(lc::Array{microcircuit},sim::simulation_parameters,list_current)
+    # list_current being the list of currents that are sent to the networks
+
+noto_sans = assetpath("fonts", "NotoSans-Regular.ttf")
+noto_sans_bold = assetpath("fonts", "NotoSans-Bold.ttf")
+fig = Figure(backgroundcolor = RGBf0(0.98, 0.98, 0.98),
+        resolution = (2000, 1000), font = noto_sans)
+ax1 = fig[1, 1] = Axis(fig, title = "Submodule 1",xlabel="Time (s)", ylabel="Firing rate (Hz)")
+
+time = 0.0:sim.dt:(sim.dt*(length(list_current[lc[1].list_soma[1].name])-1))
+
+max_yaxis = maximum(lc[1].list_soma[1].r_save)
+
+pc1 = lines!(ax1,time,lc[1].list_soma[1].r_save, color=:blue, linewidth=2,label="PC")
+vip1 = lines!(ax1,time,lc[1].list_vip[1].r_save, color=:green, linewidth=2,label="VIP")
+pv1 = lines!(ax1,time,lc[1].list_pv[1].r_save, color=:orange, linewidth=2,label="PV")
+sst1 = lines!(ax1,time,lc[1].list_sst[1].r_save, color=:red, linewidth=2,label="SST")
+int1 = lines!(ax1,time,lc[1].list_integrator[1].r_save, color=:purple,linewidth=4)
+
+
+
+ax2 = fig[1, 2] = Axis(fig, title = "Submodule 2",xlabel="Time (s)", ylabel="Firing rate (Hz)")
+
+pc2 = lines!(ax2,time,lc[2].list_soma[1].r_save, color=:blue, linewidth=2,label="PC")
+vip2 = lines!(ax2,time,lc[2].list_vip[1].r_save, color=:green, linewidth=2,label="VIP")
+pv2 = lines!(ax2,time,lc[2].list_pv[1].r_save, color=:orange, linewidth=2,label="PV")
+sst2 = lines!(ax2,time,lc[2].list_sst[1].r_save, color=:red, linewidth=2,label="SST")
+int2 = lines!(ax2,time,lc[2].list_integrator[1].r_save, color=:purple,linewidth=4)
+
+
+#     ax3 = fig[3,1] = Axis(fig, title = "Currents to Ecells")
+
+#     cpc1 = lines!(ax3, list_current[lc[1].list_soma[1].name])
+#     cpc2 = lines!(ax3, list_current[lc[2].list_soma[1].name])
+
+leg = fig[1, end+1] = Legend(fig,
+                        [pc1,vip1,pv1,sst1,int1],
+                        ["PC", "VIP", "PV", "SST","Integrator"],labelsize = 30)
+
+ylims!(ax1,0,max_yaxis + 10.0)
+ylims!(ax2,0,max_yaxis + 10.0)
+
+
+
+
+
+return fig
+end
 
 
 function plot_local_circuit_synapses(lc::Array{microcircuit},sim::simulation_parameters,list_current, params::Dict{String,Float64})

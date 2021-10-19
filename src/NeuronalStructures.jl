@@ -10,7 +10,8 @@ export get_dynamics,save_dynamics
 export vip_cell, pv_cell, sst_cell
 export gaba_syn, ampa_syn, nmda_syn
 export sst_cell_with_adaptation
-
+export bump_structure, layer_bump
+export parameters_bump_attractor, parameters_inter_microcircuit, parameters_interneurons, parameters_microcircuit, parameters_syn_strength_microcircuit
 export neuron
 
 ##############################################################################################################
@@ -125,7 +126,7 @@ struct syn_connection <: synapses
 end
 
 end
-using.Synapses
+using .Synapses
 
 ###############################################################################################################
 # Neuronal Models
@@ -175,7 +176,7 @@ using Parameters, StaticArrays
 using ..AbstractNeuronalTypes, ..EqDiffMethod
 using ...BasicFunctions
 
-export wong_wang_cell#, neural_integrator, dynamique_integrator
+export wong_wang_cell# , neural_integrator, dynamique_integrator
 
 @with_kw struct wong_wang_cell <: neuron
     r::Vector{Float64} = [0.0]
@@ -260,26 +261,26 @@ end
     Tfin::Float64 = 20.0
     Tinit::Float64 = 2.0
     TISI::Float64 = 1.0    
-    Tstimduration::Float64=0.5
-    #Stimulus::Dict{String,Vector{Float64, floor(Int,(Tinit+Tfin)/dt)}} = Dict()
+    Tstimduration::Float64 = 0.5
+    # Stimulus::Dict{String,Vector{Float64, floor(Int,(Tinit+Tfin)/dt)}} = Dict()
     
 
 
 end
 
 @with_kw struct wong_wang_network 
-  noiseamp::Float64  =0.009# noise amp of the OU process
-  i0::Float64 = 0.3255 #resting state of the OU process
-  jn11::Float64 =0.2609# Synaptic strength unit 1 to 1
+  noiseamp::Float64  = 0.009# noise amp of the OU process
+  i0::Float64 = 0.3255 # resting state of the OU process
+  jn11::Float64 = 0.2609# Synaptic strength unit 1 to 1
   jn21::Float64 = 0.0497# Synaptic strength unit 2 to 1
   jn12::Float64 = 0.0497# Synaptic strength unit 1 to 2
   jn22::Float64 = 0.2609# Synaptic strength unit 2 to 2
-  tnmda::Float64 =100.0* 0.001# time constant of NMDA receptors
+  tnmda::Float64 = 100.0 * 0.001# time constant of NMDA receptors
   tampa::Float64 = 2.0 * 0.001# time constant of AMPA receptors
   threshold::Float64# threhsold of the decision
   list_units::Vector{wong_wang_cell} = []
-  EEself::Float64 = 11.0*0.0001
-  EEcross::Float64 = 11.0*0.0001/2.0
+  EEself::Float64 = 11.0 * 0.0001
+  EEcross::Float64 = 11.0 * 0.0001 / 2.0
 
 
 end
@@ -324,9 +325,11 @@ abstract type dynamique_variables_synapses end
 export microcircuit
 export save_dynamics, get_dynamics
 export sst_cell_with_adaptation    
+export bump_structure, layer_bump
 
 
-using DataFrames, DrWatson#,CSV#,CSVFiles
+
+using DataFrames, DrWatson# ,CSV#,CSVFiles
 
 
 
@@ -349,38 +352,38 @@ end
 
 @with_kw mutable struct state_of_synapse
     s::Float64 = 0.0
-    u::Float64 = 1.0/2.5
-    d::Float64 = 1.0/2.5
+    u::Float64 = 1.0 / 2.5
+    d::Float64 = 1.0 / 2.5
     fr_pre::Float64 = 0.0
     ds::Float64 = 0.0
 end
 
 @with_kw mutable struct dynamique_gaba_syn <: dynamique_variables_synapses
     s::Float64 = 0.0
-    u::Float64 = 1.0/2.5
-    d::Float64 = 1.0/2.5
+    u::Float64 = 1.0 / 2.5
+    d::Float64 = 1.0 / 2.5
 end
 
 @with_kw struct gaba_syn <: synapses
     dynamique_variables::state_of_synapse = state_of_synapse()
-    τ::Float64 = 5 * 0.001 #s (except for dendrites)
-    #neuron_pre::neuron
-    #neuron_post::neuron
+    τ::Float64 = 5 * 0.001 # s (except for dendrites)
+    # neuron_pre::neuron
+    # neuron_post::neuron
     γ::Float64 =  2
     g::Float64
-    #s::MVector{1,Float64} = @MVector [0.0]
+    # s::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     facilitation::Bool = false
-    #u::MVector{1,Float64} = @MVector [1.0/2.5]
+    # u::MVector{1,Float64} = @MVector [1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param::facilitation_parameters = facilitation_parameters()
     d_param::depression_parameters = depression_parameters()
-    #d::MVector{1,Float64} = @MVector [1.0/2.5]
+    # d::MVector{1,Float64} = @MVector [1.0/2.5]
     depression::Bool = false
     name::String
     s_save::Vector{Float64} = [0.0]
-    u_save::Vector{Float64}=[1.0/2.5]
-    d_save::Vector{Float64}=[1.0/2.5]
+    u_save::Vector{Float64} = [1.0 / 2.5]
+    d_save::Vector{Float64} = [1.0 / 2.5]
 end
 
 
@@ -405,81 +408,81 @@ end
 
 @with_kw mutable struct dynamique_ampa_syn <: dynamique_variables_synapses
     s::Float64 = 0.0
-    u::Float64 = 1.0/2.5
-    d::Float64 = 1.0/2.5
+    u::Float64 = 1.0 / 2.5
+    d::Float64 = 1.0 / 2.5
 end
 
 @with_kw struct ampa_syn <: synapses
     dynamique_variables::state_of_synapse = state_of_synapse()
-    τ::Float64 = 2 * 0.001 #s
+    τ::Float64 = 2 * 0.001 # s
    # neuron_pre::neuron
    # neuron_post::neuron
     γ::Float64 = 5
     g::Float64
-    #s::MVector{1,Float64} = @MVector [0.0]
+    # s::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     facilitation::Bool = false
-    #u::MVector{1,Float64} = @MVector [1.0/2.5]
+    # u::MVector{1,Float64} = @MVector [1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param::facilitation_parameters = facilitation_parameters()
     d_param::depression_parameters = depression_parameters()
-    #d::MVector{1,Float64} = @MVector [1.0/2.5]
+    # d::MVector{1,Float64} = @MVector [1.0/2.5]
     depression::Bool = false
     name::String
     s_save::Vector{Float64} = [0.0]
-    u_save::Vector{Float64}=[1.0/2.5]
-    d_save::Vector{Float64}=[1.0/2.5]
+    u_save::Vector{Float64} = [1.0 / 2.5]
+    d_save::Vector{Float64} = [1.0 / 2.5]
 end
 
 
 @with_kw mutable struct dynamique_nmda_syn <: dynamique_variables_synapses
     s::Float64 = 0.0
-    u::Float64 = 1.0/2.5
-    d::Float64 = 1.0/2.5
+    u::Float64 = 1.0 / 2.5
+    d::Float64 = 1.0 / 2.5
 end
 
 
 
 @with_kw struct nmda_syn <: synapses
     dynamique_variables::state_of_synapse = state_of_synapse()
-    #neuron_pre::neuron
-    #neuron_post::neuron
+    # neuron_pre::neuron
+    # neuron_post::neuron
     γ::Float64 = 0.641 * 2
-    τ::Float64 = 60 * 0.001 #s
+    τ::Float64 = 60 * 0.001 # s
     g::Float64
-    #s::MVector{1,Float64} = @MVector [0.0]
+    # s::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     facilitation::Bool = false
-    #u::MVector{1,Float64} = @MVector [1.0/2.5]
+    # u::MVector{1,Float64} = @MVector [1.0/2.5]
     mult::Float64 = 2.5 # account for the fact that u is below 1
     f_param::facilitation_parameters = facilitation_parameters()
     d_param::depression_parameters = depression_parameters()
-    #d::MVector{1,Float64} = @MVector [0.3]
+    # d::MVector{1,Float64} = @MVector [0.3]
     depression::Bool = false
     name::String
     s_save::Vector{Float64} = [0.0]
-    u_save::Vector{Float64}=[1.0/2.5]
-    d_save::Vector{Float64}=[1.0/2.5]
+    u_save::Vector{Float64} = [1.0 / 2.5]
+    d_save::Vector{Float64} = [1.0 / 2.5]
 end
 
 
 @with_kw struct dendrites_param
     # param of the dendrites from :
-    c1::Float64 = 0.12 #* 0.001
-    c2::Float64 = 0.13624 #* 0.001
+    c1::Float64 = 0.12 # * 0.001
+    c2::Float64 = 0.13624 # * 0.001
     c3::Float64 = 7.0
-    c4::Float64 = 0.0 #* 0.001
-    c5::Float64 = 0.00964 #* 0.001
-    c6::Float64 = 0.02 #* 0.001 #nA units
+    c4::Float64 = 0.0 # * 0.001
+    c5::Float64 = 0.00964 # * 0.001
+    c6::Float64 = 0.02 # * 0.001 #nA units
 
 end
 
 @with_kw struct adaptation_variables
-    #TODO ut it in another module
+    # TODO ut it in another module
     sA::Vector{Float64} = [0.0]
     sA_save::Vector{Float64} = [0.0]
 
-    τA::Float64 = 0.1 #seconds as for facilitation and 0.05
+    τA::Float64 = 0.1 # seconds as for facilitation and 0.05
     gA::Float64 = -0.01 # value to test 0.5, was -0.1 before
 end
 
@@ -494,7 +497,7 @@ struct dendrites_param_sigmoid
      c6::Float64 
 end
 
-#TODO define a constant param per neuron
+# TODO define a constant param per neuron
 @with_kw mutable struct dynamique_dend_sigmoid
     Iexc::Float64 = 0.0
     Iinh::Float64 = 0.0
@@ -505,11 +508,11 @@ end
     Istim::Float64 = 0.0
 end
 
-@with_kw struct dend_sigmoid <:dendrite
+@with_kw struct dend_sigmoid <: dendrite
     param_c::dendrites_param_sigmoid = [0.0,0.0,0.0,0.0,0.0,0.0]
-    #Iexc::MVector{1,Float64} = @MVector [0.0]
-    #Iinh::MVector{1,Float64} = @MVector [0.0]
-    #Ioutput::MVector{1,Float64} = @MVector [0.0]
+    # Iexc::MVector{1,Float64} = @MVector [0.0]
+    # Iinh::MVector{1,Float64} = @MVector [0.0]
+    # Ioutput::MVector{1,Float64} = @MVector [0.0]
     list_syn::Vector{synapses} = []
 
     list_syn_pre_gaba::Vector{gaba_syn} = Vector{gaba_syn}()
@@ -522,9 +525,9 @@ end
     list_syn_post_nmda::Vector{nmda_syn} = Vector{nmda_syn}()
 
     Ibg::Float64 = 100.0 * 0.001
-    #Itot::MVector{1,Float64} = @MVector [0.0]
+    # Itot::MVector{1,Float64} = @MVector [0.0]
     Inoise::Vector{Float64} = [0.0]
-    #Istim::MVector{1,Float64} = @MVector [0.0]
+    # Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
@@ -548,7 +551,14 @@ end
     Itot::Float64 = 0.0
     Inoise::Float64 = 0.0
     Istim::Float64 = 0.0
-    Ibg::Float64 = 0.15#0.35#310.0 * 0.001
+    Ibg::Float64 = 0.15# 0.35#310.0 * 0.001
+
+end
+
+
+@with_kw struct bump_structure
+    num_circuits::Int64 = 128
+    σ::Float64 = 43.2
 
 end
 
@@ -562,10 +572,10 @@ end
    # Iinput::MVector{1,Float64} = @MVector [0.0]
     a::Float64 = 135.0
     b::Float64 = 54.0
-    c::Float64 = 0.308 #secondes
-    den::dend_sigmoid #dendrite connected to the soma
-    #Iexc::MVector{1,Float64} = @MVector [0.0]
-    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    c::Float64 = 0.308 # secondes
+    den::dend_sigmoid = dend_sigmoid() # dendrite connected to the soma
+    # Iexc::MVector{1,Float64} = @MVector [0.0]
+    # Iinh::MVector{1,Float64} = @MVector [0.0]
     list_syn::Vector{synapses} = Vector{synapses}()
 
     list_syn_pre_gaba::Vector{gaba_syn} = Vector{gaba_syn}()
@@ -577,10 +587,10 @@ end
     list_syn_pre_nmda::Vector{nmda_syn} = Vector{nmda_syn}()
     list_syn_post_nmda::Vector{nmda_syn} = Vector{nmda_syn}()
 
-    Ibg::Float64 = 0.15#0.35#310.0 * 0.001
-    #Itot::MVector{1,Float64} = @MVector [0.0]
+    Ibg::Float64 = 0.15# 0.35#310.0 * 0.001
+    # Itot::MVector{1,Float64} = @MVector [0.0]
     Inoise::Vector{Float64} = [0.0]
-    #Istim::MVector{1,Float64} = @MVector [0.0]
+    # Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
@@ -593,7 +603,10 @@ end
     Itot_save::Vector{Float64} = [0.0]
     Inoise_save::Vector{Float64} = [0.0]
     r_save::Vector{Float64} = [0.0]
-
+    
+    # parameters for 
+    preferred_stim::Float64 = 0.0 
+    
 end
 
 @with_kw mutable struct soma_Sean2020 <: pyr_cell
@@ -606,8 +619,8 @@ end
     Iinput::Float64 = 0.0
     a::Float64 = 0.135 * 1000
     b::Float64 = 54
-    c::Float64 = 0.308 #secondes
-    den::dendrite #dendrite connected to the soma
+    c::Float64 = 0.308 # secondes
+    den::dendrite # dendrite connected to the soma
     Iexc::Float64 = 0.0
     Iinh::Float64 = 0.0
     list_syn::Vector{synapses} = Vector{synapses}()
@@ -627,7 +640,7 @@ end
 end
 
 
-@with_kw mutable struct dend_Sean2020 <:dendrite
+@with_kw mutable struct dend_Sean2020 <: dendrite
     param_c = dendrites_param()
     Iexc::Vector{Float64} = [0.0]
     Iinh::Vector{Float64} = [0.0]
@@ -658,7 +671,7 @@ end
 
 end
 
-#TODO better choice of name (maybe having an abstract pv and so type): Note that everything is static for now (one layer)
+# TODO better choice of name (maybe having an abstract pv and so type): Note that everything is static for now (one layer)
 # @with_kw struct pv_cell <: local_circuit_interneuron_without_adaptation
 #     dynamique_variables::dynamique_pv_cell = dynamique_pv_cell()
 #     #r::MVector{1,Float64} = @MVector [0.0]		
@@ -689,12 +702,12 @@ end
 
 @with_kw struct pv_cell <: local_circuit_interneuron
     dynamique_variables::dynamique_pv_cell = dynamique_pv_cell()
-    #r::MVector{1,Float64} = @MVector [0.0]		
+    # r::MVector{1,Float64} = @MVector [0.0]		
     c_I::Float64 = 330.0
     r0::Float64 = -95.0
-    #Iinput::MVector{1,Float64} = @MVector [0.0]
-    #Iexc::MVector{1,Float64} = @MVector [0.0]
-    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    # Iinput::MVector{1,Float64} = @MVector [0.0]
+    # Iexc::MVector{1,Float64} = @MVector [0.0]
+    # Iinh::MVector{1,Float64} = @MVector [0.0]
     list_syn::Vector{synapses} = Vector{synapses}()
 
     list_syn_pre_gaba::Vector{gaba_syn} = Vector{gaba_syn}()
@@ -708,9 +721,9 @@ end
 
 
     Ibg::Float64 = 300.0 * 0.001
-    #Itot::MVector{1,Float64} = @MVector [0.0]
+    # Itot::MVector{1,Float64} = @MVector [0.0]
     Inoise::Vector{Float64} = [0.0]
-    #Istim::MVector{1,Float64} = @MVector [0.0]
+    # Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     OU_process::OU_process = OU_process()
@@ -769,12 +782,12 @@ end
 
 @with_kw struct sst_cell <: local_circuit_interneuron
     dynamique_variables::dynamique_sst_cell = dynamique_sst_cell()
-    #r::MVector{1,Float64} = @MVector [0.0]		
+    # r::MVector{1,Float64} = @MVector [0.0]		
     c_I::Float64 = 132.0
     r0::Float64 = -33.0
-    #Iinput::MVector{1,Float64} = @MVector [0.0]
-    #Iexc::MVector{1,Float64} = @MVector [0.0]
-    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    # Iinput::MVector{1,Float64} = @MVector [0.0]
+    # Iexc::MVector{1,Float64} = @MVector [0.0]
+    # Iinh::MVector{1,Float64} = @MVector [0.0]
     list_syn::Vector{synapses} = Vector{synapses}()
     list_syn_pre_gaba::Vector{gaba_syn} = Vector{gaba_syn}()
     list_syn_post_gaba::Vector{gaba_syn} = Vector{gaba_syn}()
@@ -787,9 +800,9 @@ end
 
 
     Ibg::Float64 = 300.0 * 0.001
-    #Itot::MVector{1,Float64} = @MVector [0.0]
+    # Itot::MVector{1,Float64} = @MVector [0.0]
     Inoise::Vector{Float64} = [0.0]
-    #Istim::MVector{1,Float64} = @MVector [0.0]
+    # Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     adaptation::adaptation_variables = adaptation_variables()
@@ -847,12 +860,12 @@ end
 
 @with_kw struct vip_cell <: local_circuit_interneuron
     dynamique_variables::dynamique_vip_cell = dynamique_vip_cell()
-    #r::MVector{1,Float64} = @MVector [0.0]		
+    # r::MVector{1,Float64} = @MVector [0.0]		
     c_I::Float64 = 132.0
-    r0::Float64 = -33.0 #Hz
-    #Iinput::MVector{1,Float64} = @MVector [0.0]
-    #Iexc::MVector{1,Float64} = @MVector [0.0]
-    #Iinh::MVector{1,Float64} = @MVector [0.0]
+    r0::Float64 = -33.0 # Hz
+    # Iinput::MVector{1,Float64} = @MVector [0.0]
+    # Iexc::MVector{1,Float64} = @MVector [0.0]
+    # Iinh::MVector{1,Float64} = @MVector [0.0]
     list_syn::Vector{synapses} = Vector{synapses}()
 
     list_syn_pre_gaba::Vector{gaba_syn} = Vector{gaba_syn}()
@@ -865,9 +878,9 @@ end
     list_syn_post_nmda::Vector{nmda_syn} = Vector{nmda_syn}()
 
     Ibg::Float64 = 300.0 * 0.001
-    #Itot::MVector{1,Float64} = @MVector [0.0]
+    # Itot::MVector{1,Float64} = @MVector [0.0]
     Inoise::Vector{Float64} = [0.0]
-    #Istim::MVector{1,Float64} = @MVector [0.0]
+    # Istim::MVector{1,Float64} = @MVector [0.0]
     dt::Float64 = 0.0005
     τ::Float64 = 0.002
     adaptation::adaptation_variables = adaptation_variables()
@@ -898,10 +911,10 @@ end
     dynamique_variables::dynamique_integrator = dynamique_integrator()
     τ::Float64 = 0.8 # test d'une cste de temps
     dt::Float64 = 0.0005
-    α::Float64 = 0.9  #0.8 before
+    α::Float64 = 0.9  # 0.8 before
     a::Float64 = 135.0
     b::Float64 = 54.0
-    c::Float64 = 0.308 #secondes
+    c::Float64 = 0.308 # secondes
     r::MVector{1,Float64} = @MVector [0.0]		
     Iexc::MVector{1,Float64} = @MVector [0.0]
     Iinh::MVector{1,Float64} = @MVector [0.0]
@@ -923,7 +936,7 @@ end
     Istim::MVector{1,Float64} = @MVector [0.0]
     OU_process::OU_process = OU_process()
     name::String
-    r_save::Vector{Float64}= [0.0]		
+    r_save::Vector{Float64} = [0.0]		
     Iexc_save::Vector{Float64} = [0.0]
     Iinh_save::Vector{Float64} = [0.0]
     Ibg_save::Float64 = 310.0 * 0.001
@@ -931,12 +944,23 @@ end
 end
 
 
-@with_kw mutable struct microcircuit
-    list_soma::Vector{pyr_cell}= Vector{pyr_cell}()
-    list_sst::Vector{local_circuit_interneuron} = []
+# @with_kw mutable struct microcircuit{T <: pyr_cell, D <: dendrite}
+#     list_soma::T = T()
+#     list_sst::sst_cell = sst_cell()
+#     list_vip::vip_cell = vip_cell()
+#     list_pv::pv_cell = pv_cell()
+#     list_dend::D = D()
+#     list_integrator::neural_integrator = neural_integrator()
+#     name::String = "microciruit"
+# end
+
+
+@with_kw struct microcircuit{T <: pyr_cell, D <: dendrite}
+    list_soma::Vector{T} = Vector{T}()
+    list_sst::Vector{sst_cell} = []
     list_vip::Vector{vip_cell} = []
     list_pv::Vector{pv_cell} = []
-    list_dend::Vector{dendrite} = []
+    list_dend::Vector{D} = []
     nn::Vector{wong_wang_network} = []
     list_integrator::Vector{neural_integrator} = []
     name::String = "microciruit"
@@ -944,8 +968,15 @@ end
 
 
 
+@with_kw mutable struct layer_bump{T <: pyr_cell, D <: dendrite}
+    bump_param::bump_structure
+    list_microcircuit::Vector{microcircuit{T,D}} = Vector{microcircuit{T,D}}()
 
-function save_dynamics(c::microcircuit,notebook_file::String, save_parameters)
+end
+
+
+
+function save_dynamics(c::microcircuit, notebook_file::String, save_parameters)
     # funciton that save the dynamics of the network into a csv
 
     df = DataFrame()
@@ -954,11 +985,11 @@ function save_dynamics(c::microcircuit,notebook_file::String, save_parameters)
     for pop in [c.list_pv, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
         for n in pop
 
-                df[!,string("r-",n.name)] = round.(n.r,digits=6)
-                df[!,string("Itot-",n.name)] = round.(n.Itot,digits=6)
+                df[!,string("r-", n.name)] = round.(n.r, digits=6)
+                df[!,string("Itot-", n.name)] = round.(n.Itot, digits=6)
 
             for s in n.list_syn
-                df[!,string("s-",s.name)] = round.(s.s,digits=6)
+                df[!,string("s-", s.name)] = round.(s.s, digits=6)
 
             end
         end
@@ -966,14 +997,14 @@ function save_dynamics(c::microcircuit,notebook_file::String, save_parameters)
     end
     for pop in [c.list_dend]
         for n in pop
-            df[!,string("Ioutput-",n.name)] = round.(n.Ioutput, digits=6)
+            df[!,string("Ioutput-", n.name)] = round.(n.Ioutput, digits=6)
 
            
         end
     end
 
 
-    wsave(datadir("simulations",notebook_file, savename(save_parameters, "csv")),df)
+    wsave(datadir("simulations", notebook_file, savename(save_parameters, "csv")), df)
 
 
 
@@ -986,20 +1017,20 @@ function get_dynamics(notebook_file::String, save_parameters)
     # funciton that retrieves the dynamics from the csv
 
  #   df = wload(datadir("simulations",notebook_file, savename(save_parameters, "csv")))
-    df = CSV.read(datadir("simulations",notebook_file, savename(save_parameters, "csv")), DataFrame)
-    dtemp = wload(datadir("simulations",notebook_file, savename(save_parameters, "jld2")))
+    df = CSV.read(datadir("simulations", notebook_file, savename(save_parameters, "csv")), DataFrame)
+    dtemp = wload(datadir("simulations", notebook_file, savename(save_parameters, "jld2")))
     c = dtemp["circuit"]
 
     for pop in [c.list_pv, c.list_sst, c.list_vip, c.list_soma, c.list_integrator]
         for n in pop
 
-            temp_name = string("r-",n.name)
+            temp_name = string("r-", n.name)
             n.r = df[:,temp_name]
-            temp_name = string("Itot-",n.name)
+            temp_name = string("Itot-", n.name)
             n.Itot = df[:,temp_name]
 
             for s in n.list_syn
-                temp_name = string("s-",s.name)
+                temp_name = string("s-", s.name)
                 s.s = df[:,temp_name]
             end
         end
@@ -1009,7 +1040,7 @@ function get_dynamics(notebook_file::String, save_parameters)
     for pop in [c.list_dend]
         for n in pop
 
-            temp_name = string("Ioutput-",n.name)
+            temp_name = string("Ioutput-", n.name)
             n.Ioutput = df[:,temp_name]
            
         end
@@ -1032,6 +1063,96 @@ using .local_circuit
 # Il faut donc une structure separee? 
 # 
 # 
+
+
+
+module parameters_simulations
+
+using Parameters
+using ..local_circuit
+
+export parameters_bump_attractor, parameters_inter_microcircuit, parameters_interneurons, parameters_microcircuit, parameters_syn_strength_microcircuit
+
+"""
+    Type: parameters_microcircuit
+
+List of all the parameters used for the simulations for the microcircuit
+...
+# Functions used in
+- construct_two_local_microcircuit_integrator
+....
+"""
+@with_kw struct parameters_microcircuit
+    dend_param = dendrites_param_sigmoid(0.12, -7.0, -0.482, 0.00964, 0.19624, 0.0)
+    sst_adaptation::Bool = true
+    soma_adaptation::Bool = true
+    pv_to_soma_depression::Bool = true
+    soma_to_vip_facilitation::Bool = true
+    sst_to_vip_facilitation::Bool = true
+    soma_to_sst_facilitation::Bool = true
+    vip_to_sst_facilitation::Bool = true
+    soma_to_pv_depression::Bool = true
+    int_to_vip_depression::Bool = true
+    int_to_pv_depression::Bool = true
+    int_to_sst_facilitation::Bool = true
+    int_to_dend_depression::Bool = true
+    integrator_tc::Float64 = 0.8
+    time_tot::Int = 1000
+    noise::Bool = true
+    int_to_sst_connection::Bool = true
+    top_down_to_interneurons::Vector{Float64} = [0.47, 0.31, 0.22]
+    preferred::Float64 = 0.0
+
+end
+
+
+@with_kw struct parameters_syn_strength_microcircuit
+    gaba_sst_to_dend::Float64 = -0.09
+    gaba_pv_to_soma::Float64 = -0.01
+    nmda_soma_to_soma::Float64 = 0.18
+    nmda_soma_to_vip::Float64 = -0.058
+    gaba_sst_to_vip::Float64 = -0.1
+    nmda_soma_to_sst::Float64 = 0.0435
+    gaba_vip_to_sst::Float64 = -0.05
+    nmda_soma_to_pv::Float64 = 0.17
+    gaba_sst_to_pv::Float64 = -0.17
+    gaba_pv_to_pv::Float64 = -0.18
+    nmda_soma_to_int::Float64 = 0.15
+    nmda_int_to_dend::Float64 = 0.4
+
+end
+
+
+@with_kw struct parameters_interneurons
+
+    Ibg_vip::Float64 = 0.25
+    Ibg_sst::Float64 = 0.25
+    Ibg_pv::Float64 = 0.29
+    top_down_to_interneurons::Vector{Float64} = [0.47, 0.31, 0.22]
+
+
+end
+
+
+@with_kw struct parameters_inter_microcircuit
+    cross_int_to_vip_depression::Bool = true
+    cross_int_to_pv_depression::Bool = true
+    cross_int_to_sst_facilitation::Bool = true
+    cross_int_to_dend_depression::Bool = true
+    cross_soma_to_sst_facilitation::Bool = true
+end
+
+@with_kw struct parameters_bump_attractor
+    num_circuits::Int = 128
+end
+
+
+
+end
+
+using .parameters_simulations
+
+
 
 
 end

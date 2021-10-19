@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.15.1
+# v0.16.1
 
 using Markdown
 using InteractiveUtils
@@ -101,8 +101,8 @@ fig_ISI = Figure( font = noto_sans)
 	τstep = 0.4
 
 	
-    ax_ISI_1 = fig_ISI[1, 1] = Axis(fig_ISI, title = "Mean firing rate vs ISI for stim $value_stim and f=$freq", xlabel="ISI", ylabel = "Δ mean firing rate")
-ax_ISI_2 = fig_ISI[2, 1] = Axis(fig_ISI, title = "Mean firing rate vs ISI for subsystem2", xlabel="ISI", ylabel = "Δ mean firing rate")	
+    ax_ISI_1 = fig_ISI[1, 1] = Axis(fig_ISI, title = "Mean firing rate vs ISI for stim $value_stim and f=$freq", xlabel="ISI", ylabel = " mean firing rate")
+ax_ISI_2 = fig_ISI[2, 1] = Axis(fig_ISI, title = "Mean firing rate vs ISI for subsystem2", xlabel="ISI", ylabel = " mean firing rate")	
 
 	ISI_list = vcat(collect(0.2:0.3:15.0),collect(16.0:1.0:20.0))
 
@@ -551,47 +551,6 @@ list_map= [:reds, :greens, :blues, :grays, :thermal, :viridis, :grays]
 	# fig_tc
 end
 
-# ╔═╡ 09d8d74f-a8e2-494b-b6e6-06694426666c
-begin
-	 fig_color = Figure( font = noto_sans)
-     ax_color1 = Axis(fig_color, xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.6 ")
-     blues_list = to_colormap(:blues, length(value_stim_list))
-	for i=1:length(value_stim_list)
-     lines!(ax_color1, tc_list, Δ_list[i,1,:], color= blues_list[i], linewidth = 3)
-	end
-	fig_color[1, 1] = ax_color1
-	
-	 ax_color2 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.7 ")
-     reds_list = to_colormap(:reds, length(value_stim_list))
-	for i=1:length(value_stim_list)
-     lines!(ax_color2, tc_list, Δ_list[i,2,:], color= reds_list[i], linewidth = 3)
-	end
-	fig_color[1, 2] = ax_color2
-	
-	
-	 ax_color3 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.8 ")
-     greens_list = to_colormap(:greens, length(value_stim_list))
-	for i=1:length(value_stim_list)
-     lines!(ax_color3, tc_list, Δ_list[i,3,:], color= greens_list[i], linewidth = 3)
-	end
-	fig_color[2, 1] = ax_color3
-	
-	
-	 ax_color4 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.9 ")
-     grays_list = to_colormap(:grays, length(value_stim_list))
-	for i=1:length(value_stim_list)
-		lines!(ax_color4, tc_list, Δ_list[i,4,:], color= grays_list[end-i+1], linewidth = 3)
-	end
-	fig_color[2, 2] = ax_color4
-	
-	  # cbar_fig_color = Colorbar(fig_color, value_stim_list, label = "color value", ticklabelsize = 14, labelpadding = 5, width = 10)
-	
-	
-	fig_color
-	
-	
-end
-
 # ╔═╡ f1421b5d-e88e-49fb-82d7-bf7289fd4207
 md"""
 **Heatmap of the effect**
@@ -705,13 +664,13 @@ begin
 	figtemp = Figure()
 	axtemp = Axis(figtemp)
 	
-	@. hat_fit(x,p) = p[1]*exp(-(x - p[3])^2/p[4]) + p[2]#*x + p[5]#*exp(-x*p[5]) + p[6]
+	@. hat_fit(x,p) = p[1]*exp(-(x - p[3])^2/p[4]) + p[2]#*exp(-x*p[5])+ p[6]#*exp(-x*p[5]) + p[6]
 	
-	@. exp_tanh_fit(x,p) = p[1] + p[2]*exp(-x*p[3]) + p[4]*tanh((x-p[6])*p[5])
+	@. exp_tanh_fit(x,p) = p[1] + p[4]*tanh((x-p[6])*p[5])#p[2]*exp(-x*p[3]) #+ p[4]*tanh((x-p[6])*p[5])
 	
 	
 	pat = [-1.0,-1.0,1.0,2.0,1.0,1.0]
-	pexp = [-10.0,1.0,1.0,10.0,10.0,4.0]
+	pexp = [-10.0,2.0,1.0,10.0,10.0,4.0]
 	
 	
 	lb_hat = [-10.0,-10.0,0.0]
@@ -723,7 +682,7 @@ begin
 	
 	# TODO better code to have all the data before fitting
 	
-	temp_data = fitΔ[3,10,:]
+	temp_data = fitΔ[2,10,:]
 	
 		fit_hat = curve_fit(hat_fit, ISI_list, temp_data, pat)
 	
@@ -749,7 +708,149 @@ coef(fit_exptanh)
 coef(fit_hat)
 
 # ╔═╡ 5b1d3f55-e152-4226-b50f-109b650260b9
+md""" # Fitting procedure by starting at the min value
+
+"""
+
+# ╔═╡ 13804ece-cfd1-4fa2-9ef2-52a0543f4af8
 begin
+	
+	figtemp2 = Figure()
+	axtemp2 = Axis(figtemp2)
+	
+	
+	fit_hat2 = curve_fit(hat_fit, ISI_list[argmin(temp_data):end], temp_data[argmin(temp_data):end], pat)
+	
+		fit_exptanh2 = curve_fit(exp_tanh_fit, ISI_list[argmin(temp_data):end], temp_data[argmin(temp_data):end], pexp)
+
+	#lines!(axtemp2,ISI_list, hat_fit(ISI_list, coef(fit_hat2)), color=:red)
+	lines!(axtemp2,ISI_list, exp_tanh_fit(ISI_list, coef(fit_exptanh2)), linewidth = 4)
+	lines!(axtemp2,ISI_list, temp_data,linewidth = 3)
+
+	
+	figtemp2[1,1] = axtemp2
+	figtemp2
+	
+	
+	
+	
+end
+
+# ╔═╡ f2c61ca8-6da5-49e0-8003-995d3e541e97
+begin
+	
+	temp_tc = zeros(4,length(tc_list))
+	for j=1:4
+	for i=1:length(tc_list)
+	
+		temp2 = fitΔ[j,i,:]
+		fit_exp2 = curve_fit(exp_tanh_fit, ISI_list[argmin(temp2):end], temp_data[argmin(temp2):end], pexp)
+		
+		
+		temp_tc[j,i] = 1.0/coef(fit_exp2)[5]
+		
+	end
+	end
+end
+
+# ╔═╡ 12396dfa-5e5c-40d6-b649-78ddcc1f426e
+begin
+ 	fig_color_Δ = Figure()
+	 ax_color1_Δ = Axis(fig_color_Δ, xlabel = "τ integrator (s)", ylabel = "τ of MMN (s)", title = "MMN for a Freq of 0.8 ")
+	
+	blues_list_Δ = to_colormap(:blues, 4)
+	for i=1:4
+     lines!(ax_color1_Δ, tc_list, temp_tc[i,:], color= blues_list_Δ[i], linewidth = 3)
+	end
+
+	fig_color_Δ[1, 1] = ax_color1_Δ
+
+
+	Colorbar(fig_color_Δ[1, 2], limits = (0.1, 0.4), colormap = blues_list_Δ,
+    flipaxis = false,label = "Dtimulus strength")
+	fig_color_Δ
+	
+end
+
+# ╔═╡ 09d8d74f-a8e2-494b-b6e6-06694426666c
+begin
+	 fig_color = Figure( font = noto_sans)
+     ax_color1 = Axis(fig_color, xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.6 ")
+     blues_list = to_colormap(:blues, length(value_stim_list))
+	for i=1:length(value_stim_list)
+     lines!(ax_color1, tc_list, Δ_list[i,1,:], color= blues_list[i], linewidth = 3)
+	end
+	fig_color[1, 1] = ax_color1
+	
+	 ax_color2 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.7 ")
+     reds_list = to_colormap(:reds, length(value_stim_list))
+	for i=1:length(value_stim_list)
+     lines!(ax_color2, tc_list, Δ_list[i,2,:], color= reds_list[i], linewidth = 3)
+	end
+	fig_color[1, 2] = ax_color2
+	
+	
+	 ax_color3 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.8 ")
+     greens_list = to_colormap(:greens, length(value_stim_list))
+	for i=1:length(value_stim_list)
+     lines!(ax_color3, tc_list, Δ_list[i,3,:], color= greens_list[i], linewidth = 3)
+	end
+	fig_color[2, 1] = ax_color3
+	
+	
+	 ax_color4 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.9 ")
+     grays_list = to_colormap(:grays, length(value_stim_list))
+	for i=1:length(value_stim_list)
+		lines!(ax_color4, tc_list, Δ_list[i,4,:], color= grays_list[end-i+1], linewidth = 3)
+	end
+	fig_color[2, 2] = ax_color4
+	
+	  # cbar_fig_color = Colorbar(fig_color, value_stim_list, label = "color value", ticklabelsize = 14, labelpadding = 5, width = 10)
+	
+	
+	fig_color
+	
+	
+end
+
+# ╔═╡ 27a2ee89-6814-4564-bdbd-0ce1c3fe47fb
+begin
+	 fig_color = Figure( font = noto_sans)
+     ax_color1 = Axis(fig_color, xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.6 ")
+     blues_list = to_colormap(:blues, length(value_stim_list))
+	for i=1:length(value_stim_list)
+     lines!(ax_color1, tc_list, Δ_list[i,1,:], color= blues_list[i], linewidth = 3)
+	end
+	fig_color[1, 1] = ax_color1
+	
+	 ax_color2 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.7 ")
+     reds_list = to_colormap(:reds, length(value_stim_list))
+	for i=1:length(value_stim_list)
+     lines!(ax_color2, tc_list, Δ_list[i,2,:], color= reds_list[i], linewidth = 3)
+	end
+	fig_color[1, 2] = ax_color2
+	
+	
+	 ax_color3 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.8 ")
+     greens_list = to_colormap(:greens, length(value_stim_list))
+	for i=1:length(value_stim_list)
+     lines!(ax_color3, tc_list, Δ_list[i,3,:], color= greens_list[i], linewidth = 3)
+	end
+	fig_color[2, 1] = ax_color3
+	
+	
+	 ax_color4 = Axis(fig_color,xlabel = "τ integrator", ylabel = "τ firing rates S1", title = "Freq of 0.9 ")
+     grays_list = to_colormap(:grays, length(value_stim_list))
+	for i=1:length(value_stim_list)
+		lines!(ax_color4, tc_list, Δ_list[i,4,:], color= grays_list[end-i+1], linewidth = 3)
+	end
+	fig_color[2, 2] = ax_color4
+	
+	  # cbar_fig_color = Colorbar(fig_color, value_stim_list, label = "color value", ticklabelsize = 14, labelpadding = 5, width = 10)
+	
+	
+	fig_color
+	
 	
 end
 
@@ -761,20 +862,20 @@ end
 # ╠═6bac87c9-84cc-441b-80e0-cfa5ddddd874
 # ╟─af717f0e-2c0b-4691-87c9-9e13c8c097ee
 # ╟─e975c7bd-ed9c-4fbc-bc88-b4fb66a846cf
-# ╟─92677b31-eb38-437f-bbb8-8d12d7840adb
+# ╠═92677b31-eb38-437f-bbb8-8d12d7840adb
 # ╟─864bc534-db2d-4bb7-962e-d348656e0adf
 # ╟─b9e8a257-6b81-4c5b-9c43-bae728885e55
-# ╟─5098df57-da12-4d3b-9452-0080994b3c18
+# ╠═5098df57-da12-4d3b-9452-0080994b3c18
 # ╟─c14c58d2-ff7f-434c-ab4e-64df6dd1b020
-# ╟─a21e9cd7-99b5-4cbc-8a7a-889cb0a19f85
+# ╠═a21e9cd7-99b5-4cbc-8a7a-889cb0a19f85
 # ╟─0ffb5306-a695-433b-805b-b665cb5019a9
 # ╟─56faff41-67f3-4100-a28c-ab0b04d8486f
-# ╟─c0c213dd-6a51-41ce-8d92-30f0109ec047
+# ╠═c0c213dd-6a51-41ce-8d92-30f0109ec047
 # ╟─f671bc10-befc-427c-8690-f0e2e0677710
 # ╟─f0a54ab8-baa0-482b-bf63-6728a3e49b5e
 # ╟─17e690c9-c56a-463e-a01b-9386678aaf41
-# ╟─4e8f9c4b-c7df-4b43-a3d2-4022d98e6c85
-# ╟─09d8d74f-a8e2-494b-b6e6-06694426666c
+# ╠═4e8f9c4b-c7df-4b43-a3d2-4022d98e6c85
+# ╠═09d8d74f-a8e2-494b-b6e6-06694426666c
 # ╟─f1421b5d-e88e-49fb-82d7-bf7289fd4207
 # ╟─be96e4fa-65cb-4fad-8c9d-a71fa99adaef
 # ╠═d6f5b0d0-03c6-4aca-bb45-aaa95b06a035
@@ -789,3 +890,7 @@ end
 # ╠═f121b6ea-f4b3-4bff-9a9c-7b62e214802c
 # ╠═47320f6f-111d-4e3b-acd1-f1613c3ad03e
 # ╠═5b1d3f55-e152-4226-b50f-109b650260b9
+# ╠═13804ece-cfd1-4fa2-9ef2-52a0543f4af8
+# ╠═f2c61ca8-6da5-49e0-8003-995d3e541e97
+# ╠═12396dfa-5e5c-40d6-b649-78ddcc1f426e
+# ╠═27a2ee89-6814-4564-bdbd-0ce1c3fe47fb

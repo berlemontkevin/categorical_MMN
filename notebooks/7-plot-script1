@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.15.1
+# v0.16.1
 
 using Markdown
 using InteractiveUtils
@@ -17,7 +17,7 @@ end
 begin
 	using DrWatson
 	
-	quickactivate("C:\\Users\\kevin\\Documents\\MyDocuments\\1-Research_projects\\1-project-categorical-MMN","1-project-categorical-MMN")
+	quickactivate("C:\\Users\\kevin\\OneDrive\\1-Research_projects\\1-project-categorical-MMN","1-project-categorical-MMN")
 	push!(LOAD_PATH,srcdir())
 
 end
@@ -143,11 +143,11 @@ begin
 	#Tinter = 1.0
 	#Tstim = 0.5
 	t_tot = Int64(Tfin/dt)
-	lc = construct_two_local_microcircuit_integrator(facilitation=true, depression = true, adaptation = true)
+	lc = construct_two_local_microcircuit_integrator_full_param(time_tot = t_tot+10000,int_to_pv_depression = true)#(facilitation=true, depression = true, adaptation = true)
 	sim = simulation_parameters(Tfin=Tfin)
 
 	# sim.Tfin = Tfin
-	t_tot +=2000
+	t_tot +=10000
 	oddball=Dict(
 "microcircuit1-vipcell1" =>zeros(t_tot), 
 "microcircuit1-sstcell1" =>zeros(t_tot),
@@ -183,8 +183,8 @@ begin
 				
 	end
 	
-	oddball["microcircuit1-ecell1"] = [0.1*ones(2000);array_stim_f1]
-	oddball["microcircuit2-ecell1"] = [0.1*ones(2000);array_stim_f2]
+	oddball["microcircuit1-ecell1"] = [0.0*ones(10000);array_stim_f1]
+	oddball["microcircuit2-ecell1"] = [0.0*ones(10000);array_stim_f2]
 	
 	
 	full_time_dynamics(lc,sim,oddball)
@@ -194,6 +194,7 @@ end
 
 # ╔═╡ 0abb83ce-a761-4939-b4f2-36c25bcf5fd5
 begin
+	# maybe do it for automatic stim annotation
 	fig = plot_local_circuit(lc,sim,oddball)
 	fig
 end
@@ -529,7 +530,7 @@ end
 # ╟─9836a960-2172-49f9-809b-2175d86ce6c0
 # ╟─ecfb4d83-67b5-45c1-b54c-24d422b0577d
 # ╟─14b7bff5-da85-4d96-baab-170136c272f2
-# ╟─ae6e757d-2c26-4933-8a2e-cba17228ea1f
+# ╠═ae6e757d-2c26-4933-8a2e-cba17228ea1f
 # ╟─0abb83ce-a761-4939-b4f2-36c25bcf5fd5
 # ╠═e6dd98f5-da6d-42cb-a04e-374cf97c0be8
 # ╟─7b3f6f1b-4c6a-4fa2-86c7-6e3eb8c5ab6e

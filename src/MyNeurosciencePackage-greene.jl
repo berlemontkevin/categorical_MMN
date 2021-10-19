@@ -1,5 +1,5 @@
-# MyNeurosciencePackage.jl
-module MyNeurosciencePackage
+# MyNeurosciencePackage-greene.jl
+module MyNeurosciencePackage-greene
 
 include("./BasicFunctions.jl")
 using .BasicFunctions
@@ -13,7 +13,6 @@ export get_dynamics, save_dynamics
 export vip_cell, pv_cell, sst_cell
 export gaba_syn, ampa_syn, nmda_syn
 export bump_structure, layer_bump
-export parameters_bump_attractor, parameters_inter_microcircuit, parameters_interneurons, parameters_microcircuit
 
 include("./DynamicsFunction.jl")
 using .DynamicsFunction
@@ -31,16 +30,16 @@ export create_deterministic_oddball, create_deterministic_oscillations_oddball
 export construct_two_local_microcircuit_integrator_full_param
 export orientation_kernel, create_layer_bump
 
-# include("./PlotFunctions.jl")
-# using .PlotFunctions
-# export plot_local_circuit, plot_local_circuit_synapses
+include("./PlotFunctions.jl")
+using .PlotFunctions
+export plot_local_circuit, plot_local_circuit_synapses
 
 
 include("./DataAnalysis.jl")
 using .DataAnalysis
 export get_mean_firing_rate, compute_MMN_oddball, compute_MMN_time
 
-#include("./Plasticity.jl")
+#include(".\\Plasticity.jl")
 #using .Plasticity
 
 
