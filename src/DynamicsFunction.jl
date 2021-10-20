@@ -492,25 +492,25 @@ end
 
 
 function update_adaptation!(n::T where T <: neuron)
-    @fastmath @inbounds  @. n.adaptation.sA += n.dt * (-n.adaptation.sA / n.adaptation.τA + n.dynamique_variables.r)
-    push!(n.adaptation.sA_save, n.adaptation.sA[1])
+    @fastmath   n.adaptation.sA += n.dt * (-n.adaptation.sA / n.adaptation.τA + n.dynamique_variables.r)
+    push!(n.adaptation.sA_save, n.adaptation.sA)
 
 end
 
 
 function update_syn!(n::T where T <: neuron)
 
-    temp = n.dynamique_variables.r
+    # temp = n.dynamique_variables.r
     for s in n.list_syn_pre_ampa
-        s.dynamique_variables.fr_pre = temp
+        s.dynamique_variables.fr_pre = n.dynamique_variables.r
     end
 
     for s in n.list_syn_pre_gaba
-        s.dynamique_variables.fr_pre = temp
+        s.dynamique_variables.fr_pre = n.dynamique_variables.r
     end
     
     for s in n.list_syn_pre_nmda
-        s.dynamique_variables.fr_pre = temp
+        s.dynamique_variables.fr_pre = n.dynamique_variables.r
     end
     return
 end
@@ -782,12 +782,9 @@ function time_step(l_c::Vector{microcircuit}, sim::simulation_parameters, d::Dic
     return
 end
 
+function time_step(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
 
-function time_step(l_c::Vector{microcircuit{soma_PC,dend_sigmoid}}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
-
-    for c in l_c
-        
-           synapse_derivative(c)
+    synapse_derivative(c)
         
 
 
@@ -828,260 +825,18 @@ function time_step(l_c::Vector{microcircuit{soma_PC,dend_sigmoid}}, sim::simulat
             update_syn!(c.sst)
             update_syn!(c.pv)
             update_syn!(c.integrator)
- 
+end
+
+
+function time_step(l_c::SVector{128,microcircuit{soma_PC,dend_sigmoid}}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
+
+    for c in l_c
+        time_step(c, sim, d, index)
+         
 
     end
     return
 end
-
-
-# function time_step(l_c::Vector{microcircuit{soma_PC,dend_sigmoid}}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
-
-#     for c in l_c
-        
-#            synapse_derivative(c)
-        
-
-
-#     # update dend
-#         update_dend!(c.list_dend[1], index)
-    
-#     # update neurons
-#         current_synapses!(c, d, index)
-    
-    
-#     for temp_n in c.list_soma
-#         sum_input!(temp_n, index)
-#     end
-#     for temp_n in c.list_sst
-#         sum_input!(temp_n, index)
-#     end
-#     for temp_n in c.list_vip
-#         sum_input!(temp_n, index)
-#     end
-#     for temp_n in c.list_pv
-#         sum_input!(temp_n, index)
-#     end
-#     for temp_n in c.list_integrator
-#         sum_input!(temp_n, index)
-#     end
-     
-
-
-#         for temp_n in c.list_soma
-#             current_to_frequency(temp_n)
-#         end
-#         for temp_n in c.list_vip
-#             current_to_frequency(temp_n)
-#         end
-#         for temp_n in c.list_sst
-#             current_to_frequency(temp_n)
-#         end
-#         for temp_n in c.list_pv
-#             current_to_frequency(temp_n)
-#         end
-#         for temp_n in c.list_integrator
-#             current_to_frequency(temp_n)
-#         end
-        
-
-#         for temp_n in c.list_soma
-#             update_firing!(temp_n)
-#         end
-        
-#         for temp_n in c.list_vip
-#             update_firing!(temp_n)
-#         end
-        
-#         for temp_n in c.list_sst
-#             update_firing!(temp_n)
-#         end
-        
-#         for temp_n in c.list_pv
-#             update_firing!(temp_n)
-#         end
-        
-#         for temp_n in c.list_integrator
-#             update_firing!(temp_n)
-#         end
-
-
-#         for temp_n in c.list_soma
-#             update_syn!(temp_n)
-#         end
-#         for temp_n in c.list_vip
-#             update_syn!(temp_n)
-#         end
-#         for temp_n in c.list_sst
-#             update_syn!(temp_n)
-#         end
-#         for temp_n in c.list_pv
-#             update_syn!(temp_n)
-#         end
-#         for temp_n in c.list_integrator
-#             update_syn!(temp_n)
-#         end
- 
-
-#     end
-#     return
-# end
-
-# function time_step(l_c::Vector{microcircuit{soma_PC,dend_sigmoid}}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
-
-#     for c in l_c
-        
-#                 @simd for s in c.list_pv.list_syn_post_ampa
-#                     synapse_derivative(s)
-                  
-#                 end
-#                 @simd for s in c.list_pv.list_syn_post_gaba
-#                     synapse_derivative(s)
-                  
-#                 end
-
-            
-#                 @simd for s in c.list_pv.list_syn_post_nmda
-#                     synapse_derivative(s)
-                  
-#                 end
-              
-              
-#                 @simd for s in c.list_dend.list_syn_post_ampa
-#                     synapse_derivative(s)
-                  
-#                 end
-#                 @simd for s in c.list_dend.list_syn_post_gaba
-#                     synapse_derivative(s)
-                  
-#                 end
-
-            
-#                 @simd for s in c.list_dend.list_syn_post_nmda
-#                     synapse_derivative(s)
-                  
-#                 end
-      
-
-#                 # SST neuron
-#                 @simd for s in c.list_sst.list_syn_post_ampa
-#                     synapse_derivative(s)
-        
-#                 end
-#                 @simd for s in c.list_sst.list_syn_post_gaba
-#                     synapse_derivative(s)
-         
-#                 end
-
-            
-#                 @simd for s in c.list_sst.list_syn_post_nmda
-#                     synapse_derivative(s)
-               
-#                 end
-            
-# # VIP neurons
-#                 @simd for s in c.list_vip.list_syn_post_ampa
-#                     synapse_derivative(s)
-          
-#                 end
-#                 @simd for s in c.list_vip.list_syn_post_gaba
-#                     synapse_derivative(s)
-          
-#                 end
-
-            
-#                 @simd for s in c.list_vip.list_syn_post_nmda
-#                     synapse_derivative(s)
-                   
-
-#                 end
-            
-
-#                 # SOMA
-#                 @simd for s in c.list_soma.list_syn_post_ampa
-#                     synapse_derivative(s)
-          
-#                 end
-#                 @simd for s in c.list_soma.list_syn_post_gaba
-#                     synapse_derivative(s)
-          
-#                 end
-
-            
-#                 @simd for s in c.list_soma.list_syn_post_nmda
-#                     synapse_derivative(s)
-    
-#                 end
-            
-
-#                 # Integrator
-#                 @simd for s in c.list_integrator.list_syn_post_ampa
-#                     synapse_derivative(s)
-              
-#                 end
-#                 @simd for s in c.list_integrator.list_syn_post_gaba
-#                     synapse_derivative(s)
-         
-#                 end
-
-            
-#                 @simd for s in c.list_integrator.list_syn_post_nmda
-#                     synapse_derivative(s)
-             
-#                 end
-            
-        
-
-
-#     # update dend
-#         update_dend!(c.list_dend, index)
-    
-
-
-#     # update neurons
-#         current_synapses!(c.list_soma, d, index)
-#         current_synapses!(c.list_vip, d, index)
-#         current_synapses!(c.list_sst, d, index)
-#         current_synapses!(c.list_pv, d, index)
-#         current_synapses!(c.list_integrator, d, index)
-    
-    
-#         sum_input!(c.list_soma, index)
-#         sum_input!(c.list_sst, index)
-#         sum_input!(c.list_vip, index)
-#         sum_input!(c.list_pv, index)
-#         sum_input!(c.list_integrator, index)
-    
-     
-
-
-#             current_to_frequency(c.list_soma)
-#             current_to_frequency(c.list_vip)
-#             current_to_frequency(c.list_sst)
-#             current_to_frequency(c.list_pv)
-#             current_to_frequency(c.list_integrator)
-        
-        
-
-#             update_firing!(c.list_soma)
-#             update_firing!(c.list_vip)
-#             update_firing!(c.list_sst)
-#             update_firing!(c.list_pv)
-#             update_firing!(c.list_integrator)
-        
-
-
-#             update_syn!(c.list_soma)
-#             update_syn!(c.list_soma)
-#             update_syn!(c.list_sst)
-#             update_syn!(c.list_pv)
-#             update_syn!(c.list_integrator)
-        
- 
-
-#     end
-#     return
-# end
 
 
 function full_time_dynamics(l_c::Vector{microcircuit}, sim::simulation_parameters, d::Dict{String,Vector{Float64}})

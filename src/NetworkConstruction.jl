@@ -1088,6 +1088,8 @@ using .local_microcircuit_network
 
 module global_network
 
+
+using StaticArrays
 using Base:list_append!!
 using ...BasicFunctions
 using ...NeuronalStructures.NeuralNetwork
@@ -1186,24 +1188,36 @@ end
 
 
 
-function create_layer_bump(bump_param::bump_structure; param_microcircuit = parameters_microcircuit(), param_inter_microcircuit = parameters_inter_microcircuit(), param_bump_attractor = parameters_bump_attractor())
+function create_layer_bump(bump_param::bump_structure, num_circuits::Int64; param_microcircuit = parameters_microcircuit(), param_inter_microcircuit = parameters_inter_microcircuit(), param_bump_attractor = parameters_bump_attractor())
 
 
-    layer1 = layer_bump{soma_PC, dend_sigmoid}(bump_param=bump_param)
+    # layer1 = layer_bump{soma_PC, dend_sigmoid}(bump_param=bump_param)
 
-    for i = 1:bump_param.num_circuits
-    #     c1 = microcircuit{soma_PC, dend_sigmoid}(name="microcircuit$i")
+    # layer_microcircuit_list = Vector{microcircuit{soma_PC, dend_sigmoid}}()
 
-        c1 = construct_one_local_microcircuit_integrator("microcircuit$i";param_microcircuit = parameters_microcircuit(time_tot = param_microcircuit.time_tot, preferred = i * 360.0 / bump_param.num_circuits))
-        push!(layer1.list_microcircuit, c1)
-    end
+    # # num_circuits = bump_param.num_circuits
+
+    # for i = 1:num_circuits
+    # #     c1 = microcircuit{soma_PC, dend_sigmoid}(name="microcircuit$i")
+
+    #     c1 = construct_one_local_microcircuit_integrator("microcircuit$i";param_microcircuit = parameters_microcircuit(time_tot = param_microcircuit.time_tot, preferred = i * 360.0 / bump_param.num_circuits))
+    #     push!(layer_microcircuit_list, c1)
+    # end
+    temp = @SVector [ construct_one_local_microcircuit_integrator("microcircuit$i";param_microcircuit = parameters_microcircuit(time_tot = param_microcircuit.time_tot, preferred = i * 360.0 / bump_param.num_circuits)) for i=1:128]
+    #temp = SVector{128}(layer_microcircuit_list)
+    layer1 = layer_bump{soma_PC, dend_sigmoid}(bump_param=bump_param, list_microcircuit = temp)
 
 
-    for i = 1:(bump_param.num_circuits - 1)
-        for j = (i + 1):bump_param.num_circuits
+    for i = 1:(num_circuits - 1)
+        for j = (i + 1):num_circuits
+            # connect_two_microcircuit(layer_microcircuit_list[i], layer_microcircuit_list[j], bump_param)
             connect_two_microcircuit(layer1.list_microcircuit[i], layer1.list_microcircuit[j], bump_param)
         end
     end
+
+    #  temp = @SVector [layer_microcircuit_list[i] for i=1:128]
+    # #temp = SVector{128}(layer_microcircuit_list)
+    # layer1 = layer_bump{soma_PC, dend_sigmoid}(bump_param=bump_param, list_microcircuit = temp)
 
     return layer1
 end

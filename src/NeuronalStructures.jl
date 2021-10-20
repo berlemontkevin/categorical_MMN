@@ -19,20 +19,9 @@ export neuron
 ###############################################################################################################
 module AbstractNeuronalTypes
 using Parameters
-export eq_diff_method, neuron, dendrite, pyr_cell, synapses, interneuron
+export neuron, dendrite, pyr_cell, synapses, interneuron
 
 
-"""
-    Type: eq_diff_method
-
-Defines the type of method that will be used to solve the differential equations
-
-...
-# Types currently implemented
-- Euler method
-....
-"""
-abstract type eq_diff_method end
 
 """
     Type: neuron
@@ -82,27 +71,14 @@ abstract type interneuron <: neuron end
 end
 using .AbstractNeuronalTypes
 
+
+
 ###############################################################################################################
 # Differential equation method
 ###############################################################################################################
-module EqDiffMethod
 
-using ..AbstractNeuronalTypes
-using Parameters, StaticArrays
-export euler_method
+# for now everything is always solved with Euler Method
 
-"""
-    Struct: Euler method
-
-Defines the parameters for euler method. dt is the time step and record indicates if the simulation is going to record all the time steps or not.
-"""
-@with_kw struct euler_method <: eq_diff_method
-    dt::Float64
-    record::Bool = true
-end
-
-end
-using .EqDiffMethod
 ###############################################################################################################
 # Synapses
 ###############################################################################################################
@@ -477,9 +453,10 @@ end
 
 end
 
-@with_kw struct adaptation_variables
+@with_kw mutable struct adaptation_variables
     # TODO ut it in another module
-    sA::Vector{Float64} = [0.0]
+    # sA::MVector{1,Float64} = @MVector [0.0]
+    sA::Float64 = 0.0
     sA_save::Vector{Float64} = [0.0]
 
     τA::Float64 = 0.1 # seconds as for facilitation and 0.05
@@ -671,33 +648,6 @@ end
 
 end
 
-# TODO better choice of name (maybe having an abstract pv and so type): Note that everything is static for now (one layer)
-# @with_kw struct pv_cell <: local_circuit_interneuron_without_adaptation
-#     dynamique_variables::dynamique_pv_cell = dynamique_pv_cell()
-#     #r::MVector{1,Float64} = @MVector [0.0]		
-#     c_I::Float64 = 330.0
-#     r0::Float64 = -95.0
-#     #Iinput::MVector{1,Float64} = @MVector [0.0]
-#     #Iexc::MVector{1,Float64} = @MVector [0.0]
-#     #Iinh::MVector{1,Float64} = @MVector [0.0]
-#     list_syn::Vector{synapses} = Vector{synapses}()
-#     Ibg::Float64 = 300.0 * 0.001
-#     #Itot::MVector{1,Float64} = @MVector [0.0]
-#     Inoise::Vector{Float64} = [0.0]
-#     #Istim::MVector{1,Float64} = @MVector [0.0]
-#     dt::Float64 = 0.0005
-#     τ::Float64 = 0.002
-#     OU_process::OU_process = OU_process()
-#     adaptation::adaptation_variables = adaptation_variables()
-#     adaptation_boolean = false # boolean of adaptation or not
-#     name::String
-#     #Iexc_save::Vector{Float64} = [0.0]
-#     #Iinh_save::Vector{Float64} = [0.0]
-#     #Ioutput_save::Vector{Float64} = [0.0]
-#     #Itot_save::Vector{Float64} = [0.0]
-#     #Inoise_save::Vector{Float64} = [0.0]
-#     r_save::Vector{Float64} = [0.0]
-# end
 
 
 @with_kw struct pv_cell <: local_circuit_interneuron
@@ -753,32 +703,6 @@ end
 
 end
 
-# @with_kw struct sst_cell <: local_circuit_interneuron_without_adaptation
-#     dynamique_variables::dynamique_sst_cell = dynamique_sst_cell()
-#     #r::MVector{1,Float64} = @MVector [0.0]		
-#     c_I::Float64 = 132.0
-#     r0::Float64 = -33.0
-#     #Iinput::MVector{1,Float64} = @MVector [0.0]
-#     #Iexc::MVector{1,Float64} = @MVector [0.0]
-#     #Iinh::MVector{1,Float64} = @MVector [0.0]
-#     list_syn::Vector{synapses} = Vector{synapses}()
-#     Ibg::Float64 = 300.0 * 0.001
-#     #Itot::MVector{1,Float64} = @MVector [0.0]
-#     Inoise::Vector{Float64} = [0.0]
-#     #Istim::MVector{1,Float64} = @MVector [0.0]
-#     dt::Float64 = 0.0005
-#     τ::Float64 = 0.002
-#     adaptation::adaptation_variables = adaptation_variables()
-#     adaptation_boolean = false # boolean of adaptation or not
-#     OU_process::OU_process = OU_process()
-#     name::String
-#     Iexc_save::Vector{Float64} = [0.0]
-#     Iinh_save::Vector{Float64} = [0.0]
-#     Ioutput_save::Vector{Float64} = [0.0]
-#     Itot_save::Vector{Float64} = [0.0]
-#     Inoise_save::Vector{Float64} = [0.0]
-#     r_save::Vector{Float64} = [0.0]
-# end
 
 @with_kw struct sst_cell <: local_circuit_interneuron
     dynamique_variables::dynamique_sst_cell = dynamique_sst_cell()
@@ -830,32 +754,6 @@ end
 
 end
 
-# @with_kw struct vip_cell <: local_circuit_interneuron_without_adaptation
-#     dynamique_variables::dynamique_vip_cell = dynamique_vip_cell()
-#     #r::MVector{1,Float64} = @MVector [0.0]		
-#     c_I::Float64 = 132.0
-#     r0::Float64 = -33.0 #Hz
-#     #Iinput::MVector{1,Float64} = @MVector [0.0]
-#     #Iexc::MVector{1,Float64} = @MVector [0.0]
-#     #Iinh::MVector{1,Float64} = @MVector [0.0]
-#     list_syn::Vector{synapses} = Vector{synapses}()
-#     Ibg::Float64 = 300.0 * 0.001
-#     #Itot::MVector{1,Float64} = @MVector [0.0]
-#     Inoise::Vector{Float64} = [0.0]
-#     #Istim::MVector{1,Float64} = @MVector [0.0]
-#     dt::Float64 = 0.0005
-#     τ::Float64 = 0.002
-#     adaptation::adaptation_variables = adaptation_variables()
-#     adaptation_boolean = false # boolean of adaptation or not
-#     OU_process::OU_process = OU_process()
-#     name::String
-#     Iexc_save::Vector{Float64} = [0.0]
-#     Iinh_save::Vector{Float64} = [0.0]
-#     Ioutput_save::Vector{Float64} = [0.0]
-#     Itot_save::Vector{Float64} = [0.0]
-#     Inoise_save::Vector{Float64} = [0.0]
-#     r_save::Vector{Float64} = [0.0]
-# end
 
 
 @with_kw struct vip_cell <: local_circuit_interneuron
@@ -944,27 +842,6 @@ end
 end
 
 
-# @with_kw mutable struct microcircuit{T <: pyr_cell, D <: dendrite}
-#     list_soma::T = T()
-#     list_sst::sst_cell = sst_cell()
-#     list_vip::vip_cell = vip_cell()
-#     list_pv::pv_cell = pv_cell()
-#     list_dend::D = D()
-#     list_integrator::neural_integrator = neural_integrator()
-#     name::String = "microciruit"
-# end
-
-
-# @with_kw struct microcircuit{T <: pyr_cell, D <: dendrite}
-#     list_soma::Vector{T} = Vector{T}()
-#     list_sst::Vector{sst_cell} = []
-#     list_vip::Vector{vip_cell} = []
-#     list_pv::Vector{pv_cell} = []
-#     list_dend::Vector{D} = []
-#     nn::Vector{wong_wang_network} = []
-#     list_integrator::Vector{neural_integrator} = []
-#     name::String = "microciruit"
-# end
 
 
 
@@ -982,7 +859,7 @@ end
 
 @with_kw struct layer_bump{T <: pyr_cell, D <: dendrite}
     bump_param::bump_structure
-    list_microcircuit::Vector{microcircuit{T,D}} = Vector{microcircuit{T,D}}()
+    list_microcircuit::SVector{128,microcircuit{T,D}}
 
 end
 

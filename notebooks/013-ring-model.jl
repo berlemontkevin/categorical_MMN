@@ -42,7 +42,7 @@ md""" ## Trying to benchmark the ring model
 # ╔═╡ b0f8ec9b-fe26-413e-926c-583324500446
 with_terminal() do
 	
-	@time create_layer_bump(bump_structure(); param_microcircuit = parameters_microcircuit())
+	@time create_layer_bump(bump_structure(),128; param_microcircuit = parameters_microcircuit())
 	
 	
 end
@@ -52,7 +52,7 @@ begin
 	
 	 sim = simulation_parameters()
 	 ring_simu = Dict{String,Vector{Float64}}()
-	 bump = create_layer_bump(bump_structure(), param_microcircuit = parameters_microcircuit(time_tot = 1000))
+	 bump = create_layer_bump(bump_structure(),128, param_microcircuit = parameters_microcircuit(time_tot = 1000))
 	stim = 50.0
 	
 	for i=1:128
