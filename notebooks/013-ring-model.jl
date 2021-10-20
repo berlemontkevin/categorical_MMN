@@ -37,7 +37,7 @@ md""" ## Trying to benchmark the ring model
 """
 
 # ╔═╡ 4c680a9d-1211-451f-94dc-333c7bc652b1
- microcircuit{soma_PC,dend_sigmoid}(name="microcircuit1")
+ #microcircuit{soma_PC,dend_sigmoid}(name="microcircuit1")
 
 # ╔═╡ b0f8ec9b-fe26-413e-926c-583324500446
 with_terminal() do
@@ -57,7 +57,7 @@ begin
 	
 	for i=1:128
 		
-		ring_simu[string("microcircuit$i","-","ecell1")] = 0.2.*ones(1000).*orientation_kernel(stim,bump.list_microcircuit[i].list_soma[1].preferred_stim, bump.bump_param)
+		ring_simu[string("microcircuit$i","-","ecell1")] = 0.2.*ones(1000).*orientation_kernel(stim,bump.list_microcircuit[i].soma.preferred_stim, bump.bump_param)
 	end
 end
 
@@ -96,7 +96,7 @@ with_terminal() do
 end
 
 # ╔═╡ c34f1c5f-6175-4b7c-a8b1-118100160eee
-@benchmark synapse_derivative(bump.list_microcircuit[1].list_soma[1])
+@benchmark synapse_derivative(bump.list_microcircuit[1].soma)
 
 # ╔═╡ 239afd2b-20a3-4b62-a203-fd27fc232a48
 @benchmark synapse_derivative(bump.list_microcircuit[1])
@@ -104,7 +104,7 @@ end
 # ╔═╡ aea0f11c-9fae-4e62-8c9f-c5c8c9e27ce8
 with_terminal() do
 	
-	@code_warntype synapse_derivative(bump.list_microcircuit[1].list_soma[1])
+	@code_warntype synapse_derivative(bump.list_microcircuit[1].soma)
 	
 end
 

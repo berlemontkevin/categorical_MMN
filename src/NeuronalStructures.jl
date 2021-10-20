@@ -955,20 +955,32 @@ end
 # end
 
 
+# @with_kw struct microcircuit{T <: pyr_cell, D <: dendrite}
+#     list_soma::Vector{T} = Vector{T}()
+#     list_sst::Vector{sst_cell} = []
+#     list_vip::Vector{vip_cell} = []
+#     list_pv::Vector{pv_cell} = []
+#     list_dend::Vector{D} = []
+#     nn::Vector{wong_wang_network} = []
+#     list_integrator::Vector{neural_integrator} = []
+#     name::String = "microciruit"
+# end
+
+
+
 @with_kw struct microcircuit{T <: pyr_cell, D <: dendrite}
-    list_soma::Vector{T} = Vector{T}()
-    list_sst::Vector{sst_cell} = []
-    list_vip::Vector{vip_cell} = []
-    list_pv::Vector{pv_cell} = []
-    list_dend::Vector{D} = []
-    nn::Vector{wong_wang_network} = []
-    list_integrator::Vector{neural_integrator} = []
+    soma::T 
+    sst::sst_cell
+    vip::vip_cell
+    pv::pv_cell
+    dend::D
+    integrator::neural_integrator
     name::String = "microciruit"
 end
 
 
 
-@with_kw mutable struct layer_bump{T <: pyr_cell, D <: dendrite}
+@with_kw struct layer_bump{T <: pyr_cell, D <: dendrite}
     bump_param::bump_structure
     list_microcircuit::Vector{microcircuit{T,D}} = Vector{microcircuit{T,D}}()
 
