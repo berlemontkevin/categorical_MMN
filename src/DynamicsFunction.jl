@@ -10,98 +10,38 @@ using ..BasicFunctions
 
 using ..NeuronalStructures
 
-export simulation_step!,time_step
+
+
+export simulation_step!,time_step!
 
 export dendrite_input_output!, update_firing!, update_syn!
 
 
-export sum_input!, current_to_frequency, update_dend!, full_time_dynamics
-export current_synapses!, synapse_derivative, update_adaptation!
+export sum_input!, current_to_frequency!, update_dend!, full_time_dynamics!
+export current_synapses!, synapse_derivative!, update_adaptation!
 
 
 
 
-module GeneralDynamicalFunctions
+module DendritesFunctions
 
-using StaticArrays
-
-
+using StaticArrays, Parameters
+using ...NeuronalStructures.EqDiffMethod
+using ...NeuronalStructures.NeuralNetwork
 using ...NeuronalStructures.AbstractNeuronalTypes
 using ...NeuronalStructures.NeuronalModels
-using ...NeuronalStructures.EqDiffMethod
-using ...NeuronalStructures.NeuralNetwork
-using ...NeuronalStructures.attractor_network
-
-
+using ...NeuronalStructures.Synapses
+using ...NeuronalStructures.Simulations
 using ...BasicFunctions
 
-export update_fr!, update_syn_current!
+"""
+    dendrite_input_output!(dend)
 
-####################
-# Function general for neurons
-#####################
+Function that compute the output current of the dendrite with a sigmoid function
+
+Equations are found in [`dend_sigmoid`](@ref)
 
 """
-    Function: update_fr!(n::rectified_linear_neurons,euler_m::euler_method)
-
-Updates  the firing rate of a rectified linear neuron. Takes the differential equation method in the arguments
-"""
-function update_fr!(n::rectified_linear_neurons, euler_m::euler_method)
-    @. n.fr += euler_m.dt / n.τ * (-n.fr + n.Isyn )
-    @. n.fr = rect_linear(n.fr)
-    push!(n.fr_save, n.fr[1])
-
-end
-
-
-"""
-    Function: update_syn_current!(n::neuron)
-
-Updates  the synaptic current toward a neuron. IMPORTANT: the backgrounbd current is included in Isyn
-let's note that the synaptic weights have a SIGN
-"""
-function update_syn_current!(n::neuron)
-
-    n.Isyn = @MVector [0.0]
-    @simd for syn in n.neurons_list
-        @. n.Isyn += syn.pre_syn.fr * syn.w
-    end
-    @. n.Isyn += n.Ibg 
-    push!(n.Isyn_save, n.Isyn[1])
-end
-
-
-
-end
-
-using .GeneralDynamicalFunctions
-
-
-
-
-module local_circuit_functions
-
-using Parameters, StaticArrays
-
-# using ...NeuronalStructures
-using ...NeuronalStructures.EqDiffMethod
-using ...NeuronalStructures.NeuralNetwork
-using ...NeuronalStructures.AbstractNeuronalTypes
-using ...NeuronalStructures.RateDendrites
-using ...NeuronalStructures.local_circuit
-using ...NeuronalStructures.attractor_network
-
-
-using ..GeneralDynamicalFunctions
-
-
-using ...BasicFunctions
-
-
-export dendrite_input_output!, sum_input!, current_to_frequency, update_firing!, synapse_derivative, current_synapses!, update_dend!
-export update_firing!
-export update_syn!, update_adaptation!
-
 function dendrite_input_output!(d::dend_sigmoid)
     @unpack c1, c2, c3, c4, c5, c6 = d.param_c
     
@@ -110,12 +50,51 @@ function dendrite_input_output!(d::dend_sigmoid)
    push!(d.Ioutput_save, d.dynamique_variables.Ioutput)
 
 end
+export dendrite_input_output!
 
 
-function sum_input!(n::T where {T <: local_circuit_interneuron}, index::Int64)
+end
+using .DendritesFunctions
+
+
+
+module NeuronalFunctions
+using StaticArrays, Parameters
+using ...NeuronalStructures.EqDiffMethod
+using ...NeuronalStructures.NeuralNetwork
+using ...NeuronalStructures.AbstractNeuronalTypes
+using ...NeuronalStructures.NeuronalModels
+using ...NeuronalStructures.Synapses
+using ...NeuronalStructures.Simulations
+
+using ...BasicFunctions
+
+export sum_input!, current_to_frequency!, update_adaptation!
+
+"""
+    update_adaptation!(neuron, euler_method)
+
+Update the adaptation variable of a neuron according to:
+
+''\\frac{ds_A}{dt} = -s_A/\\tau_A + r  ''
+"""
+function update_adaptation!(n::T where T <: neuron, euler::euler_method)
+    @fastmath   n.adaptation.sA += euler.dt * (-n.adaptation.sA / n.adaptation.τA + n.dynamique_variables.r)
+    push!(n.adaptation.sA_save, n.adaptation.sA)
+    nothing
+end
+
+"""
+    sum_input!(interneuron, time, euler_method)
+
+Update the total current arriving into an interneuron at time `time`. Apply the adaptation before if needed.
+
+The total current is updated into `neuron.dynamique_variables.Itot`
+"""
+function sum_input!(n::T where {T <: local_circuit_interneuron}, index::Int64, euler::euler_method)
  
     if n.adaptation_boolean
-        update_adaptation!(n)
+        update_adaptation!(n, euler)
        
         @inbounds n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.adaptation.gA * n.adaptation.sA[1]
        push!(n.Itot_save , n.dynamique_variables.Itot)
@@ -126,11 +105,15 @@ function sum_input!(n::T where {T <: local_circuit_interneuron}, index::Int64)
 
 end
 
-
-function sum_input!(n::soma_PC, index::Int64)
+"""
+    sum_input!(soma, time, euler_method)
+    
+Apply to a soma of a PC
+"""
+function sum_input!(n::soma_PC, index::Int64, euler::euler_method)
 
     if n.adaptation_boolean
-        update_adaptation!(n)
+        update_adaptation!(n,euler)
       
         @inbounds  n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim + n.den.dynamique_variables.Ioutput + n.adaptation.gA * n.adaptation.sA[1]
          push!(n.Itot_save , n.dynamique_variables.Itot)
@@ -142,32 +125,36 @@ function sum_input!(n::soma_PC, index::Int64)
     return
 end
 
+"""
+    sum_input!(neural_integrator, time)
 
-
+Apply to a neural integrator
+"""
 function sum_input!(n::neural_integrator, index::Int64)
     n.dynamique_variables.Itot = n.dynamique_variables.Iinh + n.dynamique_variables.Iexc + n.OU_process.noise[index] + n.dynamique_variables.Ibg + n.dynamique_variables.Istim 
     push!(n.Itot_save , n.dynamique_variables.Itot )
 end
 
 
-function current_to_frequency(neuron::pyr_cell)
-    # r is the rate of the neuron
-    # a = neuron.a
-    # b = neuron.b
-    # d = neuron.c
-    
-    # input_current = neuron.Itot
+"""
+    current_to_frequency!(soma)
+
+Update the firing rate of the neuron according to the input current and the transfer function
+
+``r = \\frac{a*I_{tot} - b}{1.0 - \\exp{-c*(a*I_{tot} - b)}}``
+"""
+function current_to_frequency!(neuron::soma_PC)
 
    @fastmath neuron.dynamique_variables.r = (neuron.a * neuron.dynamique_variables.Itot - neuron.b) / (1.0 - exp(-neuron.c * (neuron.a * neuron.dynamique_variables.Itot - neuron.b)))
    nothing
 end
 
+"""
+    current_to_frequency!(neuronal_integrator)
 
-function current_to_frequency(neuron::neural_integrator)
-    # a = neuron.a
-    # b = neuron.b
-    # d = neuron.c
-    # for now, the integrtor is on the f-I curve
+``r = \\frac{a*I_{tot} - b}{1.0 - \\exp{-c*(a*I_{tot} - b)}}``
+"""
+function current_to_frequency!(neuron::neural_integrator)
     
     @fastmath neuron.dynamique_variables.r = neuron.α .* neuron.dynamique_variables.r .+ (neuron.a * neuron.dynamique_variables.Itot - neuron.b) / (1.0 - exp(-neuron.c * (neuron.a * neuron.dynamique_variables.Itot - neuron.b)))
     
@@ -175,13 +162,13 @@ function current_to_frequency(neuron::neural_integrator)
 
 end
 
+"""
+    current_to_frequency!(interneuron)
 
-function current_to_frequency(neuron::T where {T <: local_circuit_interneuron})
-    # r is the rate of the neuron
-    # c_I = neuron.c_I
-    # r0 = neuron.r0
-    # input_current = neuron.Itot
-
+``r = [c_I * I_{tot} + r-0]_+``
+"""
+function current_to_frequency!(neuron::T where {T <: local_circuit_interneuron})
+ 
     neuron.dynamique_variables.r = rect_linear(neuron.c_I * neuron.dynamique_variables.Itot + neuron.r0)
     nothing
 
@@ -189,128 +176,224 @@ end
 
 
 
-function update_firing!(n::T where {T <: neuron})
-    # update firing rates following Euler law
-    @fastmath  temp = n.dt / n.τ * (-n.r_save[end] + n.dynamique_variables.r)
 
-    push!(n.r_save, n.r_save[end])
-
-    n.r_save[end] += temp
-
-    n.dynamique_variables.r = n.r_save[end]
-    #push!(n.r_save, n.dynamique_variables.r)
-    nothing
 end
+using .NeuronalFunctions
 
 
-function synapse_derivative(s::ampa_syn)
+module SynapsesFunctions
+
+using Parameters, StaticArrays
+
+
+
+using ...NeuronalStructures.EqDiffMethod
+using ...NeuronalStructures.NeuralNetwork
+using ...NeuronalStructures.AbstractNeuronalTypes
+using ...NeuronalStructures.NeuronalModels
+using ...NeuronalStructures.Synapses
+using ...NeuronalStructures.Simulations
+
+
+using ..DendritesFunctions
+using ..NeuronalFunctions
+
+using ...BasicFunctions
+
+export synapse_derivative!, current_synapses!
+
+"""
+    synapse_derivative!(ampa_syn, euler_method)
+
+Update the gating variable of the synapse according ot the dynamical equations following Euler method
+
+**If Facilitation**
+
+``\\frac{du}{dt} = (U -u)/\\tau_F - U*(1-u) r_{pre}  ``
+
+``\\frac{ds}{dt} = -s/τ + \\alpha γ u r_{pre}     ``
+
+with α a multiplicator factor.
+
+**If Depression**
+
+``\\frac{dd}{dt} = (1 -d)/\\tau_D - d*(1-f_D) r_{pre}  ``
+
+``\\frac{ds}{dt} = -s/τ + \\alpha γ d r_{pre}     ``
+
+with α a multiplicator factor.
+
+**Otherwise** 
+
+``\\frac{ds}{dt} = -s/τ + γ r_{pre}     ``
+"""
+function synapse_derivative!(s::ampa_syn, euler::euler_method)
     if s.facilitation
-        @fastmath  s.dynamique_variables.u += s.f_param.dt * ((s.f_param.U - s.dynamique_variables.u) / s.f_param.τ + s.f_param.U * (1.0 - s.dynamique_variables.u) * s.dynamique_variables.fr_pre)
+        @fastmath  s.dynamique_variables.u += euler.dt * ((s.f_param.U - s.dynamique_variables.u) / s.f_param.τ + s.f_param.U * (1.0 - s.dynamique_variables.u) * s.dynamique_variables.fr_pre)
         push!(s.u_save,s.dynamique_variables.u)
         @fastmath s.dynamique_variables.ds =  -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.u * s.dynamique_variables.fr_pre
 
-        s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
+        s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
     elseif s.depression
-        @fastmath  s.dynamique_variables.d += s.f_param.dt * ((1.0 - s.dynamique_variables.d) / s.f_param.τ - s.dynamique_variables.d * (1.0 - s.d_param.fD) * s.dynamique_variables.fr_pre)
+        @fastmath  s.dynamique_variables.d += euler.dt * ((1.0 - s.dynamique_variables.d) / s.f_param.τ - s.dynamique_variables.d * (1.0 - s.d_param.fD) * s.dynamique_variables.fr_pre)
         push!(s.d_save,s.dynamique_variables.d)
          @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.d * s.dynamique_variables.fr_pre
 
-         s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
+         s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
     else
          @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * s.dynamique_variables.fr_pre
 
-         s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
+         s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
     end
     push!(s.s_save,s.dynamique_variables.s)
 nothing
 end
 
+"""
+    synapse_derivative!(gaba_syn, euler_method)
 
-function synapse_derivative(s::gaba_syn)
-    # paper Sean: Inhibition onto the dendrites is slower than inhibition elsewhere (ali and Thomson 2008)
-    s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ  + s.γ * s.dynamique_variables.fr_pre
+Update the gating variable of the synapse according ot the dynamical equations following Euler method
 
-    s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
+**If Facilitation**
+
+``\\frac{du}{dt} = (U -u)/\\tau_F - U*(1-u) r_{pre}  ``
+
+``\\frac{ds}{dt} = -s/τ + \\alpha γ u r_{pre}     ``
+
+with α a multiplicator factor.
+
+**If Depression**
+
+``\\frac{dd}{dt} = (1 -d)/\\tau_D - d*(1-f_D) r_{pre}  ``
+
+``\\frac{ds}{dt} = -s/τ + \\alpha γ d r_{pre}     ``
+
+with α a multiplicator factor.
+
+**Otherwise** 
+
+``\\frac{ds}{dt} = -s/τ + γ r_{pre}     ``
+"""
+function synapse_derivative!(s::gaba_syn, euler::euler_method)
+    if s.facilitation
+        @fastmath  s.dynamique_variables.u += euler.dt * ((s.f_param.U - s.dynamique_variables.u) / s.f_param.τ + s.f_param.U * (1.0 - s.dynamique_variables.u) * s.dynamique_variables.fr_pre)
+        push!(s.u_save,s.dynamique_variables.u)
+        @fastmath s.dynamique_variables.ds =  -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.u * s.dynamique_variables.fr_pre
+
+        s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
+    elseif s.depression
+        @fastmath  s.dynamique_variables.d += euler.dt * ((1.0 - s.dynamique_variables.d) / s.f_param.τ - s.dynamique_variables.d * (1.0 - s.d_param.fD) * s.dynamique_variables.fr_pre)
+        push!(s.d_save,s.dynamique_variables.d)
+         @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.d * s.dynamique_variables.fr_pre
+
+         s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
+    else
+         @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * s.dynamique_variables.fr_pre
+
+         s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
+    end
     push!(s.s_save,s.dynamique_variables.s)
 nothing
 end
 
+"""
+    synapse_derivative!(nmda_syn, euler_method)
 
-function synapse_derivative(s::nmda_syn)
+Update the gating variable of the synapse according ot the dynamical equations following Euler method
+
+**If Facilitation**
+
+``\\frac{du}{dt} = (U -u)/\\tau_F - U*(1-u) r_{pre}  ``
+
+``\\frac{ds}{dt} = -s/τ + \\alpha γ u (1 - s) r_{pre}     ``
+
+with α a multiplicator factor.
+
+**If Depression**
+
+``\\frac{dd}{dt} = (1 -d)/\\tau_D - d*(1-f_D) r_{pre}  ``
+
+``\\frac{ds}{dt} = -s/τ + \\alpha γ d (1 - s) r_{pre}     ``
+
+with α a multiplicator factor.
+
+**Otherwise** 
+
+``\\frac{ds}{dt} = -s/τ + γ (1 - s) r_{pre}     ``
+"""
+function synapse_derivative!(s::nmda_syn, euler::euler_method)
     if s.facilitation
-        @fastmath s.dynamique_variables.u += s.f_param.dt * ((s.f_param.U - s.dynamique_variables.u) / s.f_param.τ + s.f_param.U * (1.0 - s.dynamique_variables.u) * s.dynamique_variables.fr_pre)
+        @fastmath s.dynamique_variables.u += euler.dt * ((s.f_param.U - s.dynamique_variables.u) / s.f_param.τ + s.f_param.U * (1.0 - s.dynamique_variables.u) * s.dynamique_variables.fr_pre)
        push!(s.u_save,s.dynamique_variables.u)
        @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * (1.0 - s.dynamique_variables.s) * s.dynamique_variables.u * s.mult * s.dynamique_variables.fr_pre
         
-       s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
+       s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
 
     elseif s.depression
-        @fastmath s.dynamique_variables.d += s.f_param.dt * ((1.0 - s.dynamique_variables.d) / s.f_param.τ - s.dynamique_variables.d * (1.0 - s.d_param.fD) * s.dynamique_variables.fr_pre)
+        @fastmath s.dynamique_variables.d += euler.dt * ((1.0 - s.dynamique_variables.d) / s.f_param.τ - s.dynamique_variables.d * (1.0 - s.d_param.fD) * s.dynamique_variables.fr_pre)
         push!(s.d_save,s.dynamique_variables.d)
 
-        @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * s.mult * s.dynamique_variables.d * s.dynamique_variables.fr_pre
+        @fastmath s.dynamique_variables.ds = -s.dynamique_variables.s / s.τ + s.γ * (1.0 - s.dynamique_variables.s)* s.mult * s.dynamique_variables.d * s.dynamique_variables.fr_pre
     
-        s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
+        s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
     else
         @fastmath s.dynamique_variables.ds =  -s.dynamique_variables.s / s.τ + s.γ * (1.0 - s.dynamique_variables.s) * s.dynamique_variables.fr_pre
         
-        s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
+        s.dynamique_variables.s += euler.dt * s.dynamique_variables.ds
     end
     push!(s.s_save,s.dynamique_variables.s)
 
-nothing
+    nothing
 
 end
 
+"""
+    synapse_derivation!(neuron, euler_method)
 
-function synapse_derivative(n::neuron)
+Update all the synapse of a neuron
+"""
+function synapse_derivative!(n::neuron, euler::euler_method)
 
     @simd for s in n.list_syn_post_ampa
-        synapse_derivative(s)
+        synapse_derivative!(s, euler)
    
     end
     @simd for s in n.list_syn_post_gaba
-        synapse_derivative(s)
+        synapse_derivative!(s, euler)
     
     end
 
     @simd for s in n.list_syn_post_nmda
-        synapse_derivative(s)
+        synapse_derivative!(s, euler)
     
     end
+    nothing
+end
+
+"""
+    synapse_derivative!(microcircuit{soma_PC,dend_sigmoid}, euler_method)
+
+Update all the synapse of a microcircuit
+"""
+function synapse_derivative!(lc::microcircuit{soma_PC,dend_sigmoid}, euler::euler_method)
+    synapse_derivative!(lc.pv, euler)
+    synapse_derivative!(lc.dend, euler)
+
+    synapse_derivative!(lc.vip, euler)
+
+    synapse_derivative!(lc.sst, euler)
+    synapse_derivative!(lc.soma, euler)
+    synapse_derivative!(lc.integrator, euler)
+    nothing
 end
 
 
-function synapse_derivative(lc::microcircuit{soma_PC,dend_sigmoid})
-    # synapse_derivative(lc.list_pv[1])
-    # synapse_derivative(lc.list_dend[1])
+"""
+    current_synapses!(interneuron, dict_current, time_index)
 
-    # synapse_derivative(lc.list_vip[1])
-
-    # synapse_derivative(lc.list_sst[1])
-    # synapse_derivative(lc.list_soma[1])
-    # synapse_derivative(lc.list_integrator[1])
-    synapse_derivative(lc.pv)
-    synapse_derivative(lc.dend)
-
-    synapse_derivative(lc.vip)
-
-    synapse_derivative(lc.sst)
-    synapse_derivative(lc.soma)
-    synapse_derivative(lc.integrator)
-
-
-
-
-end
-
-
-
+Compute the sum of the synaptic current as well as the stimulus input from the matching name in the dicitonnary
+"""
 function current_synapses!(n::T where {T <: local_circuit_interneuron}, d::Dict{String,Vector{Float64}}, index::Int64)
-    # compute the sum of syn currents
-    # separe in two the currents (due to the dendrites)
-    # for n in ln 
-
         n.dynamique_variables.Iexc = 0.0
         n.dynamique_variables.Iinh = 0.0
 
@@ -337,19 +420,16 @@ function current_synapses!(n::T where {T <: local_circuit_interneuron}, d::Dict{
 
     push!(n.Iexc_save , n.dynamique_variables.Iexc)
     push!(n.Iinh_save , n.dynamique_variables.Iinh)
-    #@inbounds  n.dynamique_variables.Istim = d[n.name][index]
-   
-    # end
-    return
+    n.dynamique_variables.Istim = d[n.name][index]
+
+    nothing
 
 end
 
-
+"""
+    current_synapses!(soma_PC, dict_current, time_index)
+"""
 function current_synapses!(n::soma_PC, d::Dict{String,Vector{Float64}}, index::Int64)
-    # compute the sum of syn currents
-    # separe in two the currents (due to the dendrites)
-    # for n in ln 
-
         n.dynamique_variables.Iexc = 0.0
         n.dynamique_variables.Iinh = 0.0
 
@@ -378,16 +458,15 @@ function current_synapses!(n::soma_PC, d::Dict{String,Vector{Float64}}, index::I
     push!(n.Iinh_save , n.dynamique_variables.Iinh)
     @inbounds  n.dynamique_variables.Istim = d[n.name][index]
    
-    # end
-    return
+    
+    nothing
 
 end
 
+"""
+    current_synapses!(neural_integrator, dict_current, time_index)
+"""
 function current_synapses!(n::neural_integrator, d::Dict{String,Vector{Float64}}, index::Int64)
-    # compute the sum of syn currents
-    # separe in two the currents (due to the dendrites)
-    # for n in ln 
-
         n.dynamique_variables.Iexc = 0.0
         n.dynamique_variables.Iinh = 0.0
 
@@ -402,9 +481,6 @@ function current_synapses!(n::neural_integrator, d::Dict{String,Vector{Float64}}
    
         end
 
- 
-
-
         @simd for s in n.list_syn_post_ampa
             @fastmath n.dynamique_variables.Iexc += s.g * s.dynamique_variables.s
       
@@ -414,48 +490,32 @@ function current_synapses!(n::neural_integrator, d::Dict{String,Vector{Float64}}
 
     push!(n.Iexc_save , n.dynamique_variables.Iexc)
     push!(n.Iinh_save , n.dynamique_variables.Iinh)
-   # @inbounds  n.dynamique_variables.Istim = d[n.name][index]
+    n.dynamique_variables.Istim = d[n.name][index]
    
-    # end
-    return
-
+   nothing
 end
 
+"""
+    current_synapses!(microcircuit, dict_current, time_index)
 
+Apply 'current_synapses!' on all the neurons of a microcircuit
+"""
 function current_synapses!(lc::microcircuit{soma_PC, dend_sigmoid}, d::Dict{String,Vector{Float64}}, index::Int64)
    
-    # current_synapses!(lc.list_soma[1],d,index)
-    # current_synapses!(lc.list_sst[1],d,index)
-    # current_synapses!(lc.list_pv[1],d,index)
-    # current_synapses!(lc.list_vip[1],d,index)
-    # current_synapses!(lc.list_integrator[1],d,index)
-
-
     current_synapses!(lc.soma,d,index)
     current_synapses!(lc.sst,d,index)
     current_synapses!(lc.pv,d,index)
     current_synapses!(lc.vip,d,index)
     current_synapses!(lc.integrator,d,index)
 
-
-    return
+    nothing
 
 end
 
-
-function add_current!(gain::Float64, s_dyn::Float64, Iexc::Float64, Iinh::Float64)
-
-    if gain < 0.0
-        Iinh += gain * s_dyn
-    else
-        Iexc += gain * s_dyn
-    end
-
-    return
-end
-
-
-function current_synapses!(n::dend_sigmoid)
+"""
+    current_synapses!(dend_sigmoid, dict_current, time_index)
+"""
+function current_synapses!(n::dend_sigmoid, d::Dict{String,Vector{Float64}}, index::Int64)
    
     n.dynamique_variables.Iexc = 0.0
     n.dynamique_variables.Iinh = 0.0
@@ -476,31 +536,81 @@ function current_synapses!(n::dend_sigmoid)
 
     push!(n.Iexc_save , n.dynamique_variables.Iexc)
     push!(n.Iinh_save , n.dynamique_variables.Iinh)
-    return
+    n.dynamique_variables.Istim = d[n.name][index]
+   
+   nothing
+end
+
+end
+using .SynapsesFunctions
+
+
+module NumericalIntegration
+
+using Parameters, StaticArrays
+
+using ...NeuronalStructures.EqDiffMethod
+using ...NeuronalStructures.NeuralNetwork
+using ...NeuronalStructures.AbstractNeuronalTypes
+using ...NeuronalStructures.NeuronalModels
+using ...NeuronalStructures.Synapses
+using ...NeuronalStructures.Simulations
+
+
+using ..DendritesFunctions
+using ..NeuronalFunctions
+using ..SynapsesFunctions
+
+using ...BasicFunctions
+
+
+export  update_firing!, synapse_derivative!, current_synapses!, update_dend!
+export update_firing!
+export update_syn!, update_adaptation!
+
+
+
+"""
+    update_firing!(neuron, euler_method)
+
+Update the firing rate of a neuron according to Euler method
+
+Note that the function first update the fequency according to [`current_to_frequency!`](@ref) then save the result.
+"""
+function update_firing!(n::T where {T <: neuron}, euler::euler_method)
+    current_to_frequency!(n)
+    @fastmath  temp = euler.dt / n.τ * (-n.r_save[end] + n.dynamique_variables.r)
+    push!(n.r_save, n.r_save[end])
+    n.r_save[end] += temp
+    n.dynamique_variables.r = n.r_save[end]
+    nothing
 end
 
 
-function update_dend!(d::dend_sigmoid, index::Int64)
-    current_synapses!(d)
+"""
+    update_dend!(dend_sigmoid, dict_currentm time_index)
+
+Update the synaptic current towards the dendrite, the total current and the output current that the dendrite generates.
+"""
+function update_dend!(d::dend_sigmoid, dic::Dict{String,Vector{Float64}}, index::Int64)
+    current_synapses!(d, dic, index)
     @inbounds d.dynamique_variables.Iexc += d.OU_process.noise[index] + d.dynamique_variables.Istim + d.dynamique_variables.Ibg
 
     d.dynamique_variables.Itot = d.dynamique_variables.Iexc + d.dynamique_variables.Iinh
     push!(d.Itot_save, d.dynamique_variables.Itot)
     
     dendrite_input_output!(d)
+    nothing
 end
 
 
-function update_adaptation!(n::T where T <: neuron)
-    @fastmath   n.adaptation.sA += n.dt * (-n.adaptation.sA / n.adaptation.τA + n.dynamique_variables.r)
-    push!(n.adaptation.sA_save, n.adaptation.sA)
 
-end
+"""
+    update_syn!(neuron)
 
-
+Update the presynaptic firing rates of all synapses of a neuron
+"""
 function update_syn!(n::T where T <: neuron)
-
-    # temp = n.dynamique_variables.r
     for s in n.list_syn_pre_ampa
         s.dynamique_variables.fr_pre = n.dynamique_variables.r
     end
@@ -512,363 +622,103 @@ function update_syn!(n::T where T <: neuron)
     for s in n.list_syn_pre_nmda
         s.dynamique_variables.fr_pre = n.dynamique_variables.r
     end
-    return
+    nothing
 end
 
-end
+"""
+    time_step!(microcircuit{soma_PC,dend_sigmoid}, simulation_parameters, time_index)
 
-using .local_circuit_functions
+Update all the variables of a microcircuit for a time step
+"""
+function time_step!(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_parameters, index::Int64)
 
-module time_dynamics
+    synapse_derivative!(c, c.eq_diff_method)
+    update_dend!(c.dend, sim.current, index)
 
-
-using ...NeuronalStructures.attractor_network
-
-using ...NeuronalStructures.local_circuit
-using ...NeuronalStructures.EqDiffMethod
-using ...NeuronalStructures.NeuralNetwork
-using Parameters, StaticArrays
-using ...NeuronalStructures.AbstractNeuronalTypes
-
-using ...NeuronalStructures.RateDendrites
-using ...NeuronalStructures.local_circuit
-
-using ..local_circuit_functions
-# using ..attractor_network_functions
-
-using ...BasicFunctions
-
-
-export time_step, full_time_dynamics
-
-
-### TODO: change the funciton to update the variable s of the synapses
-
-
-function time_step(l_c::Vector{microcircuit}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
-
-    for c in l_c
-        
-            for n in c.list_pv
-                @simd for s in n.list_syn_post_ampa
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-                #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-                @simd for s in n.list_syn_post_gaba
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-
-            
-                @simd for s in n.list_syn_post_nmda
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-            end
-            for n in c.list_dend
-                @simd for s in n.list_syn_post_ampa
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-                #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-                @simd for s in n.list_syn_post_gaba
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-
-            
-                @simd for s in n.list_syn_post_nmda
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-            end
-            for n in c.list_sst
-                @simd for s in n.list_syn_post_ampa
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-                #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-                @simd for s in n.list_syn_post_gaba
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-
-            
-                @simd for s in n.list_syn_post_nmda
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-            end
-            for n in c.list_vip
-                @simd for s in n.list_syn_post_ampa
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-                #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-                @simd for s in n.list_syn_post_gaba
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-
-            
-                @simd for s in n.list_syn_post_nmda
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-            end
-            for n in c.list_soma
-                @simd for s in n.list_syn_post_ampa
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-                #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-                @simd for s in n.list_syn_post_gaba
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-
-            
-                @simd for s in n.list_syn_post_nmda
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-            end
-            for n in c.list_integrator
-                @simd for s in n.list_syn_post_ampa
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-                #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-                @simd for s in n.list_syn_post_gaba
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-
-            
-                @simd for s in n.list_syn_post_nmda
-                    synapse_derivative(s)
-                    # s.dynamique_variables.s += s.dt * s.dynamique_variables.ds
-               #     push!(s.s_save , s.dynamique_variables.s)
-
-                end
-            end
-        
-
-
-    # update dend
-    for dend in c.list_dend
-        update_dend!(dend, index)
-    end
-    # update neurons
-    for temp_n in c.list_soma
-        current_synapses!(temp_n, d, index)
-    end
-    for temp_n in c.list_vip
-        current_synapses!(temp_n, d, index)
-    end
-    for temp_n in c.list_sst
-        current_synapses!(temp_n, d, index)
-    end
-    for temp_n in c.list_pv
-        current_synapses!(temp_n, d, index)
-    end
-    for temp_n in c.list_integrator
-        current_synapses!(temp_n, d, index)
-    end
-    
-    for temp_n in c.list_soma
-        sum_input!(temp_n, index)
-    end
-    for temp_n in c.list_sst
-        sum_input!(temp_n, index)
-    end
-    for temp_n in c.list_vip
-        sum_input!(temp_n, index)
-    end
-    for temp_n in c.list_pv
-        sum_input!(temp_n, index)
-    end
-    for temp_n in c.list_integrator
-        sum_input!(temp_n, index)
-    end
-     
-
-
-        for temp_n in c.list_soma
-            current_to_frequency(temp_n)
-        end
-        for temp_n in c.list_vip
-            current_to_frequency(temp_n)
-        end
-        for temp_n in c.list_sst
-            current_to_frequency(temp_n)
-        end
-        for temp_n in c.list_pv
-            current_to_frequency(temp_n)
-        end
-        for temp_n in c.list_integrator
-            current_to_frequency(temp_n)
-        end
-        
-
-        for temp_n in c.list_soma
-            update_firing!(temp_n)
-        end
-        
-        for temp_n in c.list_vip
-            update_firing!(temp_n)
-        end
-        
-        for temp_n in c.list_sst
-            update_firing!(temp_n)
-        end
-        
-        for temp_n in c.list_pv
-            update_firing!(temp_n)
-        end
-        
-        for temp_n in c.list_integrator
-            update_firing!(temp_n)
-        end
-
-
-        for temp_n in c.list_soma
-            update_syn!(temp_n)
-        end
-        for temp_n in c.list_vip
-            update_syn!(temp_n)
-        end
-        for temp_n in c.list_sst
-            update_syn!(temp_n)
-        end
-        for temp_n in c.list_pv
-            update_syn!(temp_n)
-        end
-        for temp_n in c.list_integrator
-            update_syn!(temp_n)
-        end
- 
-
-    end
-    return
-end
-
-function time_step(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
-
-    synapse_derivative(c)
-        
-
-
-    # update dend
-        update_dend!(c.dend, index)
-    
-    # update neurons
-        current_synapses!(c, d, index)
+    current_synapses!(c, sim.current, index)
     
     
-        sum_input!(c.soma, index)
-        sum_input!(c.sst, index)
-        sum_input!(c.vip, index)
-        sum_input!(c.pv, index)
-        sum_input!(c.integrator, index)
+    sum_input!(c.soma, index, c.eq_diff_method)
+    sum_input!(c.sst, index, c.eq_diff_method)
+    sum_input!(c.vip, index, c.eq_diff_method)
+    sum_input!(c.pv, index, c.eq_diff_method)
+    sum_input!(c.integrator, index)
     
      
 
 
-            current_to_frequency(c.soma)
-            current_to_frequency(c.vip)
-            current_to_frequency(c.sst)
-            current_to_frequency(c.pv)
-            current_to_frequency(c.integrator)
+    current_to_frequency!(c.soma)
+    current_to_frequency!(c.vip)
+    current_to_frequency!(c.sst)
+    current_to_frequency!(c.pv)
+    current_to_frequency!(c.integrator)
         
         
 
-            update_firing!(c.soma)
-            update_firing!(c.vip)
-            update_firing!(c.sst)
-            update_firing!(c.pv)
-            update_firing!(c.integrator)
+    update_firing!(c.soma, c.eq_diff_method)
+    update_firing!(c.vip, c.eq_diff_method)
+    update_firing!(c.sst, c.eq_diff_method)
+    update_firing!(c.pv, c.eq_diff_method)
+    update_firing!(c.integrator, c.eq_diff_method)
         
 
 
-            update_syn!(c.soma)
-            update_syn!(c.vip)
-            update_syn!(c.sst)
-            update_syn!(c.pv)
-            update_syn!(c.integrator)
+    update_syn!(c.soma)
+    update_syn!(c.vip)
+    update_syn!(c.sst)
+    update_syn!(c.pv)
+    update_syn!(c.integrator)
+    nothing
 end
 
+"""
+    time_step!(SVector{128,microcircuit{soma_PC,dend_sigmoid}}, simulation_parameters, time_index)
 
-function time_step(l_c::SVector{128,microcircuit{soma_PC,dend_sigmoid}}, sim::simulation_parameters, d::Dict{String,Vector{Float64}}, index::Int64)
+    Update all the variables of a ring model for a time step
+"""
+function time_step!(l_c::SVector{128,microcircuit{soma_PC,dend_sigmoid}}, sim::simulation_parameters, index::Int64)
 
     for c in l_c
-        time_step(c, sim, d, index)
-         
-
+        time_step!(c, sim, index)
     end
-    return
+    nothing
 end
+export time_step!
 
 
-function full_time_dynamics(l_c::Vector{microcircuit}, sim::simulation_parameters, d::Dict{String,Vector{Float64}})
-    # TODO: to write better. compute the whole time dynamics of the microcuit
-    list_time = 0.0:sim.dt:(sim.dt * length(d[l_c[1].list_soma[1].name]))
-   
+"""
+    full_time_dynamics!(layer_bump{soma_PC}, simulation_parameters)
 
+Compute the dynamics on the full time of the simulaiton
+"""
+function full_time_dynamics!(l_c::layer_bump{soma_PC}, sim::simulation_parameters)
+
+    list_time = 0.0:l_c.eq_diff_method.dt:(l_c.eq_diff_method.dt * length(d[l_c.list_microcircuit[1].soma.name]))
     for index = 2:length(list_time[1:end-1]) 
-         time_step(l_c, sim, d, index)
+         time_step!(l_c.list_microcircuit, sim, index)
     end
-    # TODO: do a nice return function for this dynamics
-    return
+    nothing
+
 end
+export full_time_dynamics!
 
-# TODO
-   
-function full_time_dynamics(l_c::layer_bump{soma_PC}, sim::simulation_parameters, d::Dict{String,Vector{Float64}})
+"""
+    full_time_dynamics!(microcircuit, simualtion_parameters)
+"""
+function full_time_dynamics!(l_c::Vector{microcircuit{soma_PC, dend_sigmoid}}, sim::simulation_parameters)
 
-    list_time = 0.0:sim.dt:(sim.dt * length(d[l_c.list_microcircuit[1].soma.name]))
-   
-
+    list_time = 0.0:l_c[1].eq_diff_method.dt:(l_c[1].eq_diff_method.dt * length(sim.current[l_c[1].soma.name]))
     for index = 2:length(list_time[1:end-1]) 
-    # for i=1:lc.bump_param.num_circuits
-         time_step(l_c.list_microcircuit, sim, d, index)
-    # end
+    for i=1:length(l_c)
+         time_step!(l_c[i], sim, index)
+    end
 end
-    # TODO: do a nice return function for this dynamics
-    return
+    nothing
 
 end
+
 end
-using .time_dynamics
+using .NumericalIntegration
 
 
 end

@@ -1,5 +1,5 @@
-# MyNeurosciencePackage.jl
-module MyNeurosciencePackage
+# MyNeurosciencePackage-greene.jl
+module MyNeurosciencePackage-greene
 
 include("./BasicFunctions.jl")
 using .BasicFunctions
@@ -13,16 +13,13 @@ export get_dynamics, save_dynamics
 export vip_cell, pv_cell, sst_cell
 export gaba_syn, ampa_syn, nmda_syn
 export bump_structure, layer_bump
-export parameters_bump_attractor, parameters_inter_microcircuit, parameters_interneurons, parameters_microcircuit, parameters_syn_strength_microcircuit
-export eq_diff_method
-
 
 include("./DynamicsFunction.jl")
 using .DynamicsFunction
-export time_step!
+export simulation_step!,time_step
 export dendrite_input_output!
 export sum_input!, current_to_frequency, update_firing!, update_dend!
-export full_time_dynamics!, current_synapses!, synapse_derivative, update_adaptation!
+export full_time_dynamics, current_synapses!, synapse_derivative, update_adaptation!
 export update_syn!
 
 
@@ -42,7 +39,7 @@ include("./DataAnalysis.jl")
 using .DataAnalysis
 export get_mean_firing_rate, compute_MMN_oddball, compute_MMN_time
 
-#include("./Plasticity.jl")
+#include(".\\Plasticity.jl")
 #using .Plasticity
 
 
