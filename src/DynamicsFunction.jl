@@ -76,7 +76,7 @@ export sum_input!, current_to_frequency!, update_adaptation!
 
 Update the adaptation variable of a neuron according to:
 
-''\\frac{ds_A}{dt} = -s_A/\\tau_A + r  ''
+``\\frac{ds_A}{dt} = -s_A/\\tau_A + r  ``
 """
 function update_adaptation!(n::T where T <: neuron, euler::euler_method)
     @fastmath   n.adaptation.sA += euler.dt * (-n.adaptation.sA / n.adaptation.τA + n.dynamique_variables.r)
@@ -382,6 +382,8 @@ function synapse_derivative!(lc::microcircuit{soma_PC,dend_sigmoid}, euler::eule
     synapse_derivative!(lc.vip, euler)
 
     synapse_derivative!(lc.sst, euler)
+
+    synapse_derivative!(lc.ngfc, euler)
     synapse_derivative!(lc.soma, euler)
     synapse_derivative!(lc.integrator, euler)
     nothing
@@ -506,6 +508,7 @@ function current_synapses!(lc::microcircuit{soma_PC, dend_sigmoid}, d::Dict{Stri
     current_synapses!(lc.sst,d,index)
     current_synapses!(lc.pv,d,index)
     current_synapses!(lc.vip,d,index)
+    current_synapses!(lc.ngfc,d,index)
     current_synapses!(lc.integrator,d,index)
 
     nothing
@@ -643,7 +646,7 @@ function time_step!(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_param
     sum_input!(c.vip, index, c.eq_diff_method)
     sum_input!(c.pv, index, c.eq_diff_method)
     sum_input!(c.integrator, index)
-    
+    sum_input!(c.ngfc, index, c.eq_diff_method)
      
 
 
@@ -652,7 +655,7 @@ function time_step!(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_param
     current_to_frequency!(c.sst)
     current_to_frequency!(c.pv)
     current_to_frequency!(c.integrator)
-        
+    current_to_frequency!(c.ngfc)
         
 
     update_firing!(c.soma, c.eq_diff_method)
@@ -660,7 +663,7 @@ function time_step!(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_param
     update_firing!(c.sst, c.eq_diff_method)
     update_firing!(c.pv, c.eq_diff_method)
     update_firing!(c.integrator, c.eq_diff_method)
-        
+    update_firing!(c.ngfc, c.eq_diff_method)
 
 
     update_syn!(c.soma)
@@ -668,6 +671,7 @@ function time_step!(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_param
     update_syn!(c.sst)
     update_syn!(c.pv)
     update_syn!(c.integrator)
+    update_syn!(c.ngfc)
     nothing
 end
 
@@ -691,9 +695,9 @@ export time_step!
 
 Compute the dynamics on the full time of the simulaiton
 """
-function full_time_dynamics!(l_c::layer_bump{soma_PC}, sim::simulation_parameters)
+function full_time_dynamics!(l_c::layer_bump{soma_PC, dend_sigmoid, euler_method}, sim::simulation_parameters)
 
-    list_time = 0.0:l_c.eq_diff_method.dt:(l_c.eq_diff_method.dt * length(d[l_c.list_microcircuit[1].soma.name]))
+    list_time = 0.0:l_c.eq_diff_method.dt:(l_c.eq_diff_method.dt * length(sim.current[l_c.list_microcircuit[1].soma.name]))
     for index = 2:length(list_time[1:end-1]) 
          time_step!(l_c.list_microcircuit, sim, index)
     end

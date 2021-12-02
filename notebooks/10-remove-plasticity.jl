@@ -55,7 +55,7 @@ end
 
 params = Dict(
 	"number_repetitions" => 6.0,
-    "τ_integrator" => 4.0,
+    "τ_integrator" => 2.0,
 	"value_stim_f1" => 0.2,
 	"Tinter" => 1.0,#
 	"Tstim" => 0.5,
@@ -115,7 +115,10 @@ end
 # ╔═╡ b40a7097-53e9-4e87-a6c1-af647810989a
 begin
 	
-	param_microcircuit_test = parameters_microcircuit(noise = false,top_down_to_interneurons = [0.54,0.36,0.12], sst_to_vip_facilitation = false,vip_to_sst_facilitation = false)
+	param_microcircuit_test = parameters_microcircuit(noise = false,
+		top_down_to_interneurons = [0.56,0.32,0.12],
+		sst_to_vip_facilitation = true,vip_to_sst_facilitation = true,
+τA = 0.5,gA = -0.06	)
 	
 	syn_strength = parameters_syn_strength_microcircuit(gaba_vip_to_sst = -0.17)
 	
@@ -124,6 +127,101 @@ begin
 	
 fig_test = plot_local_circuit(lc_test, sim_test, oddball_test, params)
 end
+
+# ╔═╡ 98f41852-0069-482f-81c1-4237feef7eb2
+begin
+	compute_MMN_oddball(lc_test,params)
+	
+end
+
+# ╔═╡ 7b0322d9-1d83-41a9-b5cc-842d9e18a7e0
+begin
+	temp = compute_MMN_time(lc_test,params)
+	lines(temp)
+	
+end
+
+# ╔═╡ 6cf5c6bc-c4a0-45f4-9d2b-206d2a314c2c
+begin
+	# plot the top_down to sst strength curve
+	τA_list = collect(0.1:0.1:1.0)
+	fig_sst = Figure()
+	ax_sst = Axis(fig_sst[1,1],title="MMN effect", xlabel = "Percentage of top-down to SST", ylabel = "MMN effect at 25 ms (HZ)")
+	
+	colors_sst = to_colormap(:viridis, length(τA_list))
+
+	
+	for (j,τA_temp) in enumerate(τA_list)
+		
+		
+		list_MMN_sst = Float64[]
+
+		for sst_strength in collect(0.0:0.1:1.0)
+			
+	param_microcircuit_test = parameters_microcircuit(noise = false,
+		top_down_to_interneurons = [0.47,0.31,0.22.*sst_strength]./sum([0.47,0.31,0.22.*sst_strength]),
+		sst_to_vip_facilitation = true,vip_to_sst_facilitation = true,
+τA = τA_temp, gA= -0.01	)
+	
+	syn_strength = parameters_syn_strength_microcircuit(gaba_vip_to_sst = -0.17)
+	
+	
+	lc_test,oddball_test,sim_test = run_simu1_script(params;param_microcircuit = param_microcircuit_test, param_syn_microcircuit = syn_strength)
+	
+	push!(list_MMN_sst, compute_MMN_oddball(lc_test,params))
+	end
+		scatter!(ax_sst,collect(0.0:0.1:1.0).*0.22,list_MMN_sst,color=colors_sst[j], label = "Time constant adaptation $τA_temp (s)")
+	end
+	
+		# fig_sst[1:2, 2] = Legend(fig_sst, ax_sst, "Legend", framevisible = false)
+		Colorbar(fig_sst[1,2], limits = (0.0,1.0), colormap = :viridis, label = "Time constant adaptation (s)")
+	fig_sst
+end
+
+# ╔═╡ e497ed2b-54a3-4083-8965-d668af37ad52
+save(plotsdir("notebook10-sst-and-tc-adaptation.png"),fig_sst)
+
+# ╔═╡ c1a76dc3-3235-4856-be2a-4d2db95f7dae
+begin
+	# plot the top_down to sst strength curve
+	gA_list = collect(-0.1:0.01:-0.01)
+	fig_sst_gA = Figure()
+	ax_sst_gA = Axis(fig_sst_gA[1,1],title="MMN effect", xlabel = "Percentage of top-down to SST", ylabel = "MMN effect at 25 ms (HZ)")
+	
+	colors_sst_gA = to_colormap(:viridis, length(τA_list))
+
+	
+	for (j,gA_temp) in enumerate(gA_list)
+		
+		
+		list_MMN_sst = Float64[]
+
+		for sst_strength in collect(0.0:0.1:1.0)
+			
+	param_microcircuit_test = parameters_microcircuit(noise = false,
+		top_down_to_interneurons = [0.47,0.31,0.22.*sst_strength]./sum([0.47,0.31,0.22.*sst_strength]),
+		sst_to_vip_facilitation = true,vip_to_sst_facilitation = true,
+τA = 0.1, gA= gA_temp	)
+	
+	syn_strength = parameters_syn_strength_microcircuit(gaba_vip_to_sst = -0.17)
+	
+	
+	lc_test,oddball_test,sim_test = run_simu1_script(params;param_microcircuit = param_microcircuit_test, param_syn_microcircuit = syn_strength)
+	
+	push!(list_MMN_sst, compute_MMN_oddball(lc_test,params))
+	end
+		scatter!(ax_sst_gA,collect(0.0:0.1:1.0).*0.22,list_MMN_sst,color=colors_sst_gA[j], label = "Time constant adaptation 0.1 (s)")
+	end
+	
+		# fig_sst[1:2, 2] = Legend(fig_sst, ax_sst, "Legend", framevisible = false)
+		Colorbar(fig_sst_gA[1,2], limits = (-0.1,-0.01), colormap = :viridis, label = "Strength of adaptation")
+	
+	fig_sst_gA
+	
+end
+
+# ╔═╡ 3378a831-4199-4b0d-a5f4-9a82ee3602fa
+save(plotsdir("notebook10-sst-and-strength-adaptation.png"),fig_sst_gA)
 
 # ╔═╡ 9e5adf20-3ad5-4cd4-8283-91918ed2eb5e
 md""" ## No depression on int to dend
@@ -247,6 +345,25 @@ end
 # ╔═╡ 139c02d6-df65-4e88-bf80-55c304d82351
 
 
+# ╔═╡ 12bac34b-0af1-49e2-b43d-6b5921099898
+begin
+	
+	#ax_fixed_τ = Axis(heatmap_fixed_τ[1,1])
+	index_heatmap = 3
+	value_heatmap = τ_list[index_heatmap]
+	heatmap_fixed_τ = Figure()
+	
+	ax_hm,hm = heatmap(heatmap_fixed_τ[1,1],num_list,Tinter_list, load_tot_MMN[:,index_heatmap,:])
+	Colorbar(heatmap_fixed_τ[1, 2],hm,label="MMN effect (Hz)")
+	SupTitle = Label(heatmap_fixed_τ[0,1:2], "Heatmap of MMN - τ integrator = $value_heatmap s")
+	ax_hm.xlabel = "Number of repetitions"
+	ax_hm.ylabel = "Tinter (s)"
+	heatmap_fixed_τ
+	
+	save(plotsdir("notebook9-heatmap_τ=$value_heatmap.png"),heatmap_fixed_τ)
+	heatmap_fixed_τ
+end
+
 # ╔═╡ af4ea3f3-a9df-4e0d-8e0a-c369ced9c502
 begin
 	lcif3,oddballif3,simif3 = run_simu1_script(params, noise=false, int_to_sst_connection = false, int_to_pv_depression = true, int_to_vip_depression = true, int_to_dend_depression = true, soma_to_sst_facilitation = true)
@@ -316,33 +433,20 @@ fig_2d
 
 end
 
-# ╔═╡ 12bac34b-0af1-49e2-b43d-6b5921099898
-begin
-	
-	#ax_fixed_τ = Axis(heatmap_fixed_τ[1,1])
-	index_heatmap = 3
-	value_heatmap = τ_list[index_heatmap]
-	heatmap_fixed_τ = Figure()
-	
-	ax_hm,hm = heatmap(heatmap_fixed_τ[1,1],num_list,Tinter_list, load_tot_MMN[:,index_heatmap,:])
-	Colorbar(heatmap_fixed_τ[1, 2],hm,label="MMN effect (Hz)")
-	SupTitle = Label(heatmap_fixed_τ[0,1:2], "Heatmap of MMN - τ integrator = $value_heatmap s")
-	ax_hm.xlabel = "Number of repetitions"
-	ax_hm.ylabel = "Tinter (s)"
-	heatmap_fixed_τ
-	
-	save(plotsdir("notebook9-heatmap_τ=$value_heatmap.png"),heatmap_fixed_τ)
-	heatmap_fixed_τ
-end
-
 # ╔═╡ Cell order:
 # ╟─a7532200-1b11-11ec-139c-c5fe3272aee2
-# ╟─b0aa5d53-00ff-4b8c-a8e5-905eb25a20e8
+# ╠═b0aa5d53-00ff-4b8c-a8e5-905eb25a20e8
 # ╠═ac0516db-654d-48d9-8881-18990b915be3
 # ╠═69efc5c1-3279-4c53-ba7b-8a5ce25265bc
 # ╠═a37d8a1c-1ee3-4206-9c9d-d2032c8fe1bf
 # ╠═37518325-f6e2-497a-9072-972cdc1c4c34
 # ╠═b40a7097-53e9-4e87-a6c1-af647810989a
+# ╠═98f41852-0069-482f-81c1-4237feef7eb2
+# ╠═7b0322d9-1d83-41a9-b5cc-842d9e18a7e0
+# ╠═6cf5c6bc-c4a0-45f4-9d2b-206d2a314c2c
+# ╠═e497ed2b-54a3-4083-8965-d668af37ad52
+# ╠═c1a76dc3-3235-4856-be2a-4d2db95f7dae
+# ╠═3378a831-4199-4b0d-a5f4-9a82ee3602fa
 # ╠═9e5adf20-3ad5-4cd4-8283-91918ed2eb5e
 # ╠═5ae76c69-d9a3-46af-a513-84943be17e13
 # ╠═e8e16bac-720f-4696-a0a9-aaaa1865b181

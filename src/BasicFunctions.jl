@@ -66,6 +66,8 @@ end
 
 end
 
+OU_process(tot_time::Int64;τ = 0.002, dt = 0.0005, σ= 0.005) = OU_process(τ=τ, dt=dt, σ=σ, noise = zeros(tot_time)) 
+
 
 function update_process!(s_process::OU_process)
     push!(s_process.noise, s_process.noise[end])
@@ -85,10 +87,17 @@ function create_process!(s_process::OU_process)
 end
 
 
+"""
+    create_process(τ,σ, length_simulation, dt)
 
-
-
-
+create an OU process with a given τ and σ and the length of the simulation
+"""
+function create_OU_process( noise_length::Int64; τ = 0.002, σ = 0.005, dt = 0.0005)
+    s_process = OU_process(noise_length, τ = τ, dt = dt, σ = σ )
+    create_process!(s_process)
+    return s_process
+end
+export create_OU_process
 
 
 

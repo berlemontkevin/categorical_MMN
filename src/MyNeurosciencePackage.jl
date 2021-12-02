@@ -14,7 +14,7 @@ export vip_cell, pv_cell, sst_cell
 export gaba_syn, ampa_syn, nmda_syn
 export bump_structure, layer_bump
 export parameters_bump_attractor, parameters_inter_microcircuit, parameters_interneurons, parameters_microcircuit, parameters_syn_strength_microcircuit
-export eq_diff_method
+export eq_diff_method, get_firing_rate
 
 
 include("./DynamicsFunction.jl")
@@ -22,7 +22,7 @@ using .DynamicsFunction
 export time_step!
 export dendrite_input_output!
 export sum_input!, current_to_frequency, update_firing!, update_dend!
-export full_time_dynamics!, current_synapses!, synapse_derivative, update_adaptation!
+export full_time_dynamics!, current_synapses!, synapse_derivative!, update_adaptation!
 export update_syn!
 
 
@@ -36,6 +36,7 @@ export orientation_kernel, create_layer_bump
 include("./PlotFunctions.jl")
 using .PlotFunctions
 export plot_local_circuit, plot_local_circuit_synapses
+export bump_animation
 
 
 include("./DataAnalysis.jl")

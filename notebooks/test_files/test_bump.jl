@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.1
+# v0.16.4
 
 using Markdown
 using InteractiveUtils
@@ -331,7 +331,7 @@ lines(test_layer.list_microcircuit[23].list_sst[1].r_save)
 # ╠═b64c68e9-4472-4d46-a579-a3e722d3abc1
 # ╠═fd49b0e7-d91b-4f54-908e-f8a643873bb8
 # ╠═299027cd-9655-4005-a2c1-ec229221b8a2
-# ╟─8e1bff84-19fb-416c-b8fd-dd02fcd36af4
+# ╠═8e1bff84-19fb-416c-b8fd-dd02fcd36af4
 # ╠═92f8283f-9038-48e2-a953-a239caf49b71
 # ╠═6850c6dc-f65c-4d00-a4e1-c3381b338112
 # ╠═1dd228c1-86cf-41f7-b1b2-281a2e3aa97e

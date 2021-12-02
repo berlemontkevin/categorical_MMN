@@ -44,46 +44,56 @@ Return a microcircuit constucted according to the following arguments:
 - `param_syn_strength_microcircuit` = parameters of the strengths of the synapses
 
 """
-function construct_one_local_microcircuit_integrator(name::String; param_microcircuit = parameters_microcircuit(),  param_syn_strength_microcircuit = parameters_syn_strength_microcircuit() )
+function construct_one_local_microcircuit_integrator(name::String; param_microcircuit = parameters_microcircuit(),  param_syn_strength_microcircuit = parameters_syn_strength_microcircuit() , param_interneurons = parameters_interneurons())
 
-    @unpack dend_param, sst_adaptation, soma_adaptation, pv_to_soma_depression, soma_to_vip_facilitation, sst_to_vip_facilitation, soma_to_sst_facilitation, vip_to_sst_facilitation, soma_to_pv_depression, int_to_vip_depression, int_to_pv_depression, int_to_sst_facilitation, int_to_dend_depression, integrator_tc, time_tot, noise, int_to_sst_connection, top_down_to_interneurons, preferred = param_microcircuit
+    @unpack τA, gA, dend_param, sst_adaptation, soma_adaptation, pv_to_soma_depression, soma_to_vip_facilitation, sst_to_vip_facilitation, soma_to_sst_facilitation, vip_to_sst_facilitation, soma_to_pv_depression, int_to_vip_depression, int_to_pv_depression, int_to_sst_facilitation, int_to_dend_depression, integrator_tc, time_tot, noise, int_to_sst_connection,  preferred, ngfc_to_dend_depression = param_microcircuit
 
 
     @unpack   gaba_sst_to_dend, gaba_pv_to_soma, nmda_soma_to_soma, nmda_soma_to_vip,
-    gaba_sst_to_vip, nmda_soma_to_sst, gaba_vip_to_sst, nmda_soma_to_pv, gaba_sst_to_pv, gaba_pv_to_pv, nmda_soma_to_sst, nmda_soma_to_int, nmda_int_to_dend = param_syn_strength_microcircuit
+    gaba_sst_to_vip, nmda_soma_to_sst, gaba_vip_to_sst, nmda_soma_to_pv, gaba_sst_to_pv, gaba_pv_to_pv, nmda_soma_to_sst, nmda_soma_to_int, nmda_int_to_dend, gaba_sst_to_ngfc, gaba_ngfc_to_dend = param_syn_strength_microcircuit
 
+    @unpack Ibg_vip, Ibg_sst, Ibg_pv, Ibg_ngfc, top_down_to_interneurons = param_interneurons
 
 
 
     if noise
-        vip1 = vip_cell(name=string(name, "-", "vipcell1"), Ibg=0.25, OU_process=BasicFunctions.OU_process(noise=zeros(time_tot)))
 
-        sst1 = sst_cell(name=string(name, "-", "sstcell1"), Ibg=0.25, adaptation_boolean=sst_adaptation, OU_process=BasicFunctions.OU_process(noise=zeros(time_tot)))
-
-        pv1 = pv_cell(name=string(name, "-", "pvcell1"), Ibg=0.29, OU_process=BasicFunctions.OU_process(noise=zeros(time_tot)))
-
-        dend1 = dend_sigmoid(param_c=dend_param, name=string(name, "-", "dend1"), OU_process=BasicFunctions.OU_process(noise=zeros(time_tot)))
-
-        E1 = soma_PC(den=dend1, adaptation_boolean=soma_adaptation, name=string(name, "-", "ecell1"), OU_process=BasicFunctions.OU_process(noise=zeros(time_tot)), preferred_stim=preferred)
-        integrator1 = neural_integrator(τ=integrator_tc, name=string(name, "-", "integrator1"), OU_process=BasicFunctions.OU_process(noise=zeros(time_tot)))
+        # create the OU process of the cells
+        vip_OU = create_OU_process(time_tot)
+        pv_OU = create_OU_process(time_tot)
+        sst_OU = create_OU_process(time_tot)
+        pc_OU = create_OU_process(time_tot)
+        dend_OU = create_OU_process(time_tot)
+        integrator_OU = create_OU_process(time_tot)
+        ngfc_OU = create_OU_process(time_tot)
+        
     else
-        vip1 = vip_cell(name=string(name, "-", "vipcell1"), Ibg=0.25, OU_process=BasicFunctions.OU_process(noise=zeros(time_tot), σ=0.0))
+        # create the OU process of the cells
 
-        sst1 = sst_cell(name=string(name, "-", "sstcell1"), Ibg=0.25, adaptation_boolean=sst_adaptation, OU_process=BasicFunctions.OU_process(noise=zeros(time_tot), σ=0.0))
+        vip_OU = create_OU_process(time_tot, σ = 0.0)
+        pv_OU = create_OU_process(time_tot, σ = 0.0)
+        sst_OU = create_OU_process(time_tot, σ = 0.0)
+        pc_OU = create_OU_process(time_tot, σ = 0.0)
+        dend_OU = create_OU_process(time_tot, σ = 0.0)
+        integrator_OU = create_OU_process(time_tot, σ = 0.0)
+        ngfc_OU = create_OU_process(time_tot, σ = 0.0)
 
-        pv1 = pv_cell(name=string(name, "-", "pvcell1"), Ibg=0.29, OU_process=BasicFunctions.OU_process(noise=zeros(time_tot), σ=0.0))
-
-        dend1 = dend_sigmoid(param_c=dend_param, name=string(name, "-", "dend1"), OU_process=BasicFunctions.OU_process(noise=zeros(time_tot), σ=0.0))
-
-        E1 = soma_PC(den=dend1, adaptation_boolean=soma_adaptation, name=string(name, "-", "ecell1"), OU_process=BasicFunctions.OU_process(noise=zeros(time_tot), σ=0.0), preferred_stim=preferred)
-        integrator1 = neural_integrator(τ=integrator_tc, name=string(name, "-", "integrator1"), OU_process=BasicFunctions.OU_process(noise=zeros(time_tot), σ=0.0))
     end
-    create_process!(vip1.OU_process)
-    create_process!(sst1.OU_process)
-    create_process!(pv1.OU_process)
-    create_process!(dend1.OU_process)
-    create_process!(E1.OU_process)
-    create_process!(integrator1.OU_process)
+
+    vip1 = vip_cell(name=string(name, "-", "vipcell1"), Ibg=Ibg_vip, OU_process=vip_OU)
+
+    sst1 = sst_cell(name=string(name, "-", "sstcell1"), Ibg=Ibg_sst, adaptation_boolean=sst_adaptation, OU_process=sst_OU, adaptation = adaptation_variables(gA=gA, τA = τA))
+
+    pv1 = pv_cell(name=string(name, "-", "pvcell1"), Ibg=Ibg_pv, OU_process=pv_OU)
+
+    ngfc1 = ngfc_cell(name=string(name, "-", "ngfccell1"), Ibg=Ibg_ngfc, OU_process=ngfc_OU)
+
+    dend1 = dend_sigmoid(param_c=dend_param, name=string(name, "-", "dend1"), OU_process=dend_OU)
+
+    E1 = soma_PC(den=dend1, adaptation_boolean=soma_adaptation, name=string(name, "-", "ecell1"), OU_process=pc_OU, preferred_stim=preferred, adaptation = adaptation_variables(gA=gA, τA = τA))
+
+    integrator1 = neural_integrator(τ=integrator_tc, name=string(name, "-", "integrator1"), OU_process=integrator_OU)
+
 
     dend1_gaba = gaba_syn(τ=10 * 0.001, g = gaba_sst_to_dend, name=string(name, "-", "sst1-to-dend1"))
     push!(dend1.list_syn_post_gaba, dend1_gaba)
@@ -138,17 +148,30 @@ function construct_one_local_microcircuit_integrator(name::String; param_microci
     push!(pv1.list_syn_pre_gaba, pvpv_gaba)
 
        
+    ngfcsst_gaba = gaba_syn(g= gaba_sst_to_ngfc, name=string(name, "-", "sst1-to-ngfc1"))
+    push!(ngfc1.list_syn_post_gaba, ngfcsst_gaba)
+    push!(sst1.list_syn_pre_gaba, ngfcsst_gaba)
+
+    dendngfc_gaba = gaba_syn(g= gaba_ngfc_to_dend, name=string(name, "-", "ngfc1-to-dend1"), depression=ngfc_to_dend_depression)
+    push!(dend1.list_syn_post_gaba, dendngfc_gaba)
+    push!(ngfc1.list_syn_pre_gaba, dendngfc_gaba)
+
+    ngfcint_nmda = nmda_syn(g = top_down_to_interneurons[4], name=string(name, "-", "integrator1-to-ngfc1"))
+    push!(ngfc1.list_syn_post_nmda, ngfcint_nmda)
+    push!(integrator1.list_syn_pre_nmda, ngfcint_nmda)
+
+
     if int_to_sst_connection
-        sstint_nmda = nmda_syn(g=top_down_to_interneurons[3], facilitation=int_to_sst_facilitation, name=string(name, "-", "integrator1-to-sst1"))
-        push!(sst1.list_syn_post_nmda, sstint_nmda)
-        push!(integrator1.list_syn_pre_nmda, sstint_nmda)
+        # sstint_nmda = nmda_syn(g=top_down_to_interneurons[3], facilitation=int_to_sst_facilitation, name=string(name, "-", "integrator1-to-sst1"))
+        # push!(sst1.list_syn_post_nmda, sstint_nmda)
+        # push!(integrator1.list_syn_pre_nmda, sstint_nmda)
 
         vipint_nmda = nmda_syn(g=top_down_to_interneurons[1], depression=int_to_vip_depression, name=string(name, "-", "integrator1-to-vip1"))
         push!(vip1.list_syn_post_nmda, vipint_nmda)
         push!(integrator1.list_syn_pre_nmda, vipint_nmda)
     
     
-        pvint_nmda = nmda_syn(g=top_down_to_interneurons[1], depression=int_to_pv_depression, name=string(name, "-", "integrator1-to-pv1"))
+        pvint_nmda = nmda_syn(g=top_down_to_interneurons[2], depression=int_to_pv_depression, name=string(name, "-", "integrator1-to-pv1"))
         push!(pv1.list_syn_post_nmda, pvint_nmda)
         push!(integrator1.list_syn_pre_nmda, pvint_nmda)
 
@@ -185,7 +208,7 @@ function construct_one_local_microcircuit_integrator(name::String; param_microci
     push!(integrator1.list_syn_pre_nmda, dendint_nmda)	
 
         
-    c = microcircuit{soma_PC, dend_sigmoid}(soma = E1, sst = sst1, vip = vip1, pv = pv1, dend = dend1, integrator = integrator1, name = name )
+    c = microcircuit{soma_PC, dend_sigmoid}(soma = E1, sst = sst1, vip = vip1, pv = pv1, ngfc = ngfc1, dend = dend1, integrator = integrator1, name = name )
     return c
 
 end
@@ -246,7 +269,8 @@ using ...NeuronalStructures.NeuralNetwork
 using ..local_microcircuit_network
 using ...NeuronalStructures.Simulations
 using ...NeuronalStructures.NeuronalModels
-
+using ...NeuronalStructures.Synapses
+using ...NeuronalStructures.EqDiffMethod
 
 using DrWatson
 
@@ -284,11 +308,11 @@ function connect_two_microcircuit!(c1::microcircuit, c2::microcircuit, bump_para
     @unpack cross_int_to_vip_depression, cross_int_to_pv_depression, cross_int_to_sst_facilitation, cross_int_to_dend_depression, cross_soma_to_sst_facilitation = param_inter_microcircuit
 
     temp = orientation_kernel(c1.soma.preferred_stim, c2.soma.preferred_stim, bump_param)
-    e1tosst2 = nmda_syn(g=0.0135 * temp, facilitation=cross_soma_to_sst_facilitation, name=string("ecell2-to-sst1"))
+    e1tosst2 = nmda_syn(g=0.00435 * temp, facilitation=cross_soma_to_sst_facilitation, name=string("ecell2-to-sst1"))
     push!(c2.sst.list_syn_post_nmda, e1tosst2)
     push!(c1.soma.list_syn_pre_nmda, e1tosst2)
 
-    e2tosst1 = nmda_syn(g=0.0135 * temp, facilitation=cross_soma_to_sst_facilitation, name=string("ecell2-to-sst1"))
+    e2tosst1 = nmda_syn(g=0.00435 * temp, facilitation=cross_soma_to_sst_facilitation, name=string("ecell2-to-sst1"))
     push!(c1.sst.list_syn_post_nmda, e2tosst1)
     push!(c2.soma.list_syn_pre_nmda, e2tosst1)
 
@@ -306,17 +330,28 @@ function connect_two_microcircuit!(c1::microcircuit, c2::microcircuit, bump_para
 
 end
     
+"""
+    create_parameters_microcircuit(i::Int64, param_inter_microcircuit::parameters_inter_microcircuit)
+
+create the parameters of a microcircuit for stimuli index i
+"""
+function create_parameters_microcircuit(i::Int64, param_microcircuit::parameters_microcircuit, bump_param::parameters_bump_attractor)
+    param_microcircuit.preferred = i*360.0/bump_param.num_circuits
+
+    return param_microcircuit
+end
+
 
 """
     create_layer_bump(parameters_bump_attractor, num_circuits; parameters_microcircuit, parameters_inter_microcircuit)
 
 Return a ring model composed of `N` microcircuits
     """
-function create_layer_bump(bump_param::parameters_bump_attractor, num_circuits::Int64; param_microcircuit = parameters_microcircuit(), param_inter_microcircuit = parameters_inter_microcircuit())
+function create_layer_bump(bump_param::parameters_bump_attractor, num_circuits::Int64; param_microcircuit = parameters_microcircuit(), param_inter_microcircuit = parameters_inter_microcircuit(), param_syn_strength_microcircuit = parameters_syn_strength_microcircuit())
 
 
-    temp = @SVector [ construct_one_local_microcircuit_integrator("microcircuit$i";param_microcircuit = parameters_microcircuit(time_tot = param_microcircuit.time_tot, preferred = i * 360.0 / bump_param.num_circuits)) for i=1:128]
-    layer1 = layer_bump{soma_PC, dend_sigmoid}(bump_param=bump_param, list_microcircuit = temp)
+    temp = @SVector [ construct_one_local_microcircuit_integrator("microcircuit$i";param_microcircuit = create_parameters_microcircuit(i,param_microcircuit,bump_param), param_syn_strength_microcircuit = param_syn_strength_microcircuit) for i=1:128]
+    layer1 = layer_bump{soma_PC, dend_sigmoid,euler_method}(bump_param=bump_param, list_microcircuit = temp, eq_diff_method = euler_method())
 
 
     for i = 1:(num_circuits - 1)
@@ -337,6 +372,12 @@ using .global_network
 module Stimuli
 
 using Parameters
+using ...NeuronalStructures.NeuralNetwork
+using ...NeuronalStructures.Simulations
+using ...NeuronalStructures.NeuronalModels
+using ...NeuronalStructures.Synapses
+using ...NeuronalStructures.EqDiffMethod
+using ...NeuronalStructures.AbstractNeuronalTypes
 
 export create_deterministic_oddball, create_deterministic_oscillations_oddball
 
@@ -404,6 +445,75 @@ function create_deterministic_oscillations_oddball(param::Dict{String,Float64}, 
 
 
     return array_stim_submodule1, array_stim_submodule2
+
+end
+
+function create_deterministic_oddball(layer_bump::layer_bump{soma_PC, dend_sigmoid, euler_method},param::Dict{String,Float64})
+    # this function will take into account ISI, strength, number of repetition
+
+    @unpack number_repetitions, value_stim_f1, Tinter, Tstim, Tfin, value_stim_f2, τ_integrator, initial_time = param
+
+
+    dt = layer_bump.eq_diff_method.dt
+
+
+    total_time = round(Int,((intitial_time + number_repetitions*(Tinter+Tstim) + Tstim)/dt))
+
+    array_stim_submodule1 =  Vector{Float64}()
+    array_stim_submodule2 =  Vector{Float64}()
+    
+    temp_index_stim = 0
+    while temp_index_stim < number_repetitions
+            
+        
+        array_stim_submodule1 = [array_stim_submodule1; zeros(round(Int, Tinter / dt)) ; value_stim_f1 * ones(round(Int, Tstim / dt))]
+                
+        array_stim_submodule2 = [array_stim_submodule2 ; zeros(round(Int, Tinter / dt)) ; value_stim_f2 * ones(round(Int, Tstim / dt))]
+                
+        temp_index_stim += 1
+                    
+    end
+    array_stim_submodule1 = [array_stim_submodule1  ; zeros(round(Int, Tinter / dt)) ; value_stim_f2 * ones(round(Int, Tstim / dt))]
+                
+    array_stim_submodule2 = [array_stim_submodule2 ; zeros(round(Int, Tinter / dt)) ; value_stim_f1 * ones(round(Int, Tstim / dt))]
+
+    array_stim_submodule1 = [0.0 * ones(round(Int, initial_time / dt));array_stim_submodule1;0.0 * ones(round(Int, initial_time / dt))]
+    array_stim_submodule2 = [0.0 * ones(round(Int, initial_time / dt));array_stim_submodule2; 0.0 * ones(round(Int, initial_time / dt))]
+
+
+    return array_stim_submodule1, array_stim_submodule2
+
+end
+
+
+"""
+create the stimulation protocol for the oddball paradigm for one neuron
+"""
+function create_deterministic_oddball(neuron::T where T <: neuron, param::Dict{String,Float64}, euler_method::eq_diff_method)
+    # this function will take into account ISI, strength, number of repetition
+
+    @unpack number_repetitions, value_stim_f1, Tinter, Tstim, Tfin, value_stim_f2, τ_integrator, initial_time = param
+
+    dt = euler_method.dt
+
+
+
+end
+
+"""
+
+create the simulation currents from a deterministic oddball
+"""
+function create_deterministic_oddball(layer_bump::layer_bump{soma_PC, dend_sigmoid, euler_method},param::Dict{String,Float64})
+    # this function will take into account ISI, strength, number of repetition
+
+    @unpack number_repetitions, value_stim_f1, Tinter, Tstim, Tfin, value_stim_f2, τ_integrator, initial_time = param
+
+    dt = layer_bump.eq_diff_method.dt
+
+    total_time = round(Int,((intitial_time + number_repetitions*(Tinter+Tstim) + Tstim)/dt))
+
+
 
 end
 
