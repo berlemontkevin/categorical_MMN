@@ -217,6 +217,48 @@ function bump_animation(layer_bump, frame_step, save_path, save_name, save_forma
     end
     return nothing
 end
+
+
+"""
+    bump_animation(layer_bump,time_tot, framerate, save_path, save_name, save_format)
+"""
+function bump_animation(nn::neural_network{soma_PC, dend_sigmoid, euler_method}, frame_step, save_path, save_name, save_format; start_time = 1.0)
+
+    time = Node(start_time)
+
+    x_range = range(1,length(nn.list_microcircuit.neurons), length = length(nn.list_microcircuit.neurons))
+
+    y_pc = @lift(get_firing_rate(nn, $time, "soma"))
+    y_vip = @lift(get_firing_rate(nn, $time, "vip"))
+    y_pv = @lift(get_firing_rate(nn, $time, "pv"))
+    y_sst = @lift(get_firing_rate(nn, $time, "sst"))
+    y_ngfc = @lift(get_firing_rate(nn, $time, "ngfc"))
+    y_int = @lift(get_firing_rate(nn.ring_integrator, $time))
+    
+
+    fig = Figure(backgroundcolor = RGBf0(0.98, 0.98, 0.98),
+            resolution = (2000, 1000))
+    ax1 = fig[1, 1] = Axis(fig, title = @lift("time = $(round(0.5.*$time, digits = 1)) ms"))
+
+    ylims!(ax1,0,50.0)
+    lines!(ax1, x_range, y_pc, color=:blue, linewidth=4,label="PC")
+    lines!(ax1, x_range, y_vip, color=:green, linewidth=4,label="VIP")
+    lines!(ax1, x_range, y_pv, color=:orange, linewidth=4,label="PV")
+    lines!(ax1, x_range, y_sst, color=:red, linewidth=4,label="SST")
+    lines!(ax1, x_range, y_ngfc, color=:black, linewidth=4,label="NGFC")
+    lines!(ax1, 1:2:128, y_int, color=:purple, linewidth=4,label="Integrator")
+
+    time_tot = length(nn.list_microcircuit.neurons[1].soma.r_save)
+
+    timestamps = range(1, time_tot, step=floor(Int, frame_step))
+
+    fig[1, 2] = Legend(fig, ax1, "Legend", framevisible = false)
+
+    record(fig, string(save_path,save_name, save_format), timestamps; framerate = 50) do t
+        time[] = floor(Int,t)
+    end
+    return nothing
+end
 export bump_animation
 
 end

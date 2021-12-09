@@ -14,7 +14,7 @@ export vip_cell, pv_cell, sst_cell
 export gaba_syn, ampa_syn, nmda_syn
 export bump_structure, layer_bump
 export parameters_bump_attractor, parameters_inter_microcircuit, parameters_interneurons, parameters_microcircuit, parameters_syn_strength_microcircuit
-export eq_diff_method, get_firing_rate
+export eq_diff_method, get_firing_rate, euler_method
 
 
 include("./DynamicsFunction.jl")
@@ -32,6 +32,9 @@ export create_network, construct_two_local_microcircuit_integrator
 export create_deterministic_oddball, create_deterministic_oscillations_oddball
 export construct_two_local_microcircuit_integrator_full_param
 export orientation_kernel, create_layer_bump
+export create_ring_microcircuit, create_ring_attractor, create_two_layers
+export intra_connectivity!, inter_connectivity!, neural_network
+
 
 include("./PlotFunctions.jl")
 using .PlotFunctions

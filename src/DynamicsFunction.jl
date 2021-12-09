@@ -385,9 +385,47 @@ function synapse_derivative!(lc::microcircuit{soma_PC,dend_sigmoid}, euler::eule
 
     synapse_derivative!(lc.ngfc, euler)
     synapse_derivative!(lc.soma, euler)
-    synapse_derivative!(lc.integrator, euler)
+    #synapse_derivative!(lc.integrator, euler)
     nothing
 end
+
+"""
+    synapse_derivative!(r::ring_integrator, euler::euler_method)
+
+apply synapse derivative! to all the synapses of a ring_integrator
+"""
+function synapse_derivative!(r::ring_integrator, euler::euler_method)
+    for n in r.neurons
+        synapse_derivative!(n, euler)
+    end
+    nothing
+end
+
+"""
+    synapse_derivative!(r::ring_microcircuit, euler::euler_method)
+
+apply synapse derivative! to all the synapses of a ring_microcircuit
+"""
+function synapse_derivative!(r::ring_microcircuit{soma_PC, dend_sigmoid, euler_method}, euler::euler_method)
+    for lc in r.neurons
+        synapse_derivative!(lc, euler)
+    end
+    nothing
+end
+
+"""
+    synapse_derivative!(nn::neural_network, euler::euler_method)
+
+apply synapse derivative! to all the synapses of a neural_network
+"""
+function synapse_derivative!(nn::neural_network{soma_PC,dend_sigmoid, euler_method}, euler::euler_method)
+   
+   synapse_derivative!(nn.ring_integrator, euler)
+   synapse_derivative!(nn.list_microcircuit, euler)
+
+   nothing
+end
+
 
 
 """
@@ -498,21 +536,14 @@ function current_synapses!(n::neural_integrator, d::Dict{String,Vector{Float64}}
 end
 
 """
-    current_synapses!(microcircuit, dict_current, time_index)
-
-Apply 'current_synapses!' on all the neurons of a microcircuit
+    current_synapses!(n::ring_integrator, dict_current, time_index)
+apply current synapses to all neurons of ring_attractor
 """
-function current_synapses!(lc::microcircuit{soma_PC, dend_sigmoid}, d::Dict{String,Vector{Float64}}, index::Int64)
-   
-    current_synapses!(lc.soma,d,index)
-    current_synapses!(lc.sst,d,index)
-    current_synapses!(lc.pv,d,index)
-    current_synapses!(lc.vip,d,index)
-    current_synapses!(lc.ngfc,d,index)
-    current_synapses!(lc.integrator,d,index)
-
+function current_synapses!(r::ring_integrator, dict_current::Dict{String,Vector{Float64}}, time_index::Int64)
+    @simd for n in r.neurons
+        current_synapses!(n, dict_current, time_index)
+    end
     nothing
-
 end
 
 """
@@ -543,6 +574,55 @@ function current_synapses!(n::dend_sigmoid, d::Dict{String,Vector{Float64}}, ind
    
    nothing
 end
+
+
+"""
+    current_synapses!(microcircuit, dict_current, time_index)
+
+Apply 'current_synapses!' on all the neurons of a microcircuit
+"""
+function current_synapses!(lc::microcircuit{soma_PC, dend_sigmoid}, d::Dict{String,Vector{Float64}}, index::Int64)
+   
+    current_synapses!(lc.soma,d,index)
+    current_synapses!(lc.sst,d,index)
+    current_synapses!(lc.pv,d,index)
+    current_synapses!(lc.vip,d,index)
+    current_synapses!(lc.ngfc,d,index)
+   # current_synapses!(lc.integrator,d,index)
+    current_synapses!(lc.dend,d,index)
+
+    nothing
+
+end
+
+
+
+"""
+    current_synapses!(ring_microcircuit, dict_current, time_index)
+Apply current_synapses! to all microcircuit of the ring
+"""
+function current_synapses!(r::ring_microcircuit{soma_PC, dend_sigmoid,euler_method}, dict_current::Dict{String,Vector{Float64}}, time_index::Int64)
+    @simd for lc in r.neurons
+        current_synapses!(lc, dict_current, time_index)
+    end
+    nothing
+end
+
+
+"""
+    current_synapses!(two_layers_network, dict_current, time_index)
+
+Apply current_synapses! to all elements of the neural network    
+"""
+function current_synapses!(nn::neural_network{soma_PC, dend_sigmoid,euler_method}, dict_current::Dict{String,Vector{Float64}}, time_index::Int64)
+
+    current_synapses!(nn.list_microcircuit, dict_current, time_index)
+    current_synapses!(nn.ring_integrator, dict_current, time_index)
+
+    nothing
+end
+
+
 
 end
 using .SynapsesFunctions
@@ -606,7 +686,16 @@ function update_dend!(d::dend_sigmoid, dic::Dict{String,Vector{Float64}}, index:
     nothing
 end
 
-
+"""
+    update_dend!(r::ring_microcircuit, dict_current, time_index)
+Update the synaptic current towards the dendrite, the total current and the output current that the dendrite generates within a ring_microcircuit.
+"""
+function update_dend!(r::ring_microcircuit{soma_PC,dend_sigmoid, euler_method}, dic::Dict{String,Vector{Float64}}, index::Int64)
+    @simd for lc in r.neurons
+        update_dend!(lc.dend, dic, index)
+    end
+    nothing
+end
 
 """
     update_syn!(neuron)
@@ -676,6 +765,75 @@ function time_step!(c::microcircuit{soma_PC,dend_sigmoid}, sim::simulation_param
 end
 
 """
+     time_step!(neuron, euler_method)time_step!(nn::neural_network,sim,index)
+time_Step! fucntion in a neural network
+"""
+function time_step!(nn::neural_network{soma_PC, dend_sigmoid, euler_method}, sim::simulation_parameters, index::Int64)
+ 
+
+    synapse_derivative!(nn, nn.eq_diff_method)
+
+    update_dend!(nn.list_microcircuit, sim.current, index)
+
+
+    current_synapses!(nn, sim.current, index)
+    
+    
+    for c in nn.list_microcircuit.neurons
+        sum_input!(c.soma, index, c.eq_diff_method)
+        sum_input!(c.sst, index, c.eq_diff_method)
+        sum_input!(c.vip, index, c.eq_diff_method)
+        sum_input!(c.pv, index, c.eq_diff_method)    
+        sum_input!(c.ngfc, index, c.eq_diff_method)
+    end
+
+    for c in nn.ring_integrator.neurons
+     sum_input!(c, index)
+    end 
+
+    for c in nn.list_microcircuit.neurons
+        current_to_frequency!(c.soma)
+        current_to_frequency!(c.vip)
+        current_to_frequency!(c.sst)
+        current_to_frequency!(c.pv)
+        current_to_frequency!(c.ngfc)
+    end
+    
+    for c in nn.ring_integrator.neurons
+        current_to_frequency!(c)
+    end
+        
+    for c in nn.list_microcircuit.neurons
+        update_firing!(c.soma, c.eq_diff_method)
+        update_firing!(c.vip, c.eq_diff_method)
+        update_firing!(c.sst, c.eq_diff_method)
+        update_firing!(c.pv, c.eq_diff_method)
+        update_firing!(c.ngfc, c.eq_diff_method)
+    end
+
+    for c in nn.ring_integrator.neurons
+        update_firing!(c, nn.eq_diff_method)
+    end
+
+    for c in nn.list_microcircuit.neurons
+        update_syn!(c.soma)
+        update_syn!(c.vip)
+        update_syn!(c.sst)
+        update_syn!(c.pv)    
+        update_syn!(c.ngfc)
+    end
+    
+    for c in nn.ring_integrator.neurons
+        update_syn!(c)
+    end
+
+    nothing
+end
+
+
+
+
+"""
     time_step!(SVector{128,microcircuit{soma_PC,dend_sigmoid}}, simulation_parameters, time_index)
 
     Update all the variables of a ring model for a time step
@@ -687,6 +845,7 @@ function time_step!(l_c::SVector{128,microcircuit{soma_PC,dend_sigmoid}}, sim::s
     end
     nothing
 end
+
 export time_step!
 
 
@@ -704,7 +863,6 @@ function full_time_dynamics!(l_c::layer_bump{soma_PC, dend_sigmoid, euler_method
     nothing
 
 end
-export full_time_dynamics!
 
 """
     full_time_dynamics!(microcircuit, simualtion_parameters)
@@ -720,6 +878,20 @@ end
     nothing
 
 end
+
+"""
+    full_time_dynamics!(neural_network, simualtion_parameters)
+"""
+function full_time_dynamics!(l_c::neural_network{soma_PC,dend_sigmoid, euler_method}, sim::simulation_parameters)
+
+    list_time = 0.0:l_c.eq_diff_method.dt:(l_c.eq_diff_method.dt * length(sim.current[l_c.list_microcircuit.neurons[1].soma.name]))
+    for index = 2:length(list_time[1:end-1])
+        time_step!(l_c, sim, index)
+    end
+    nothing
+end
+
+export full_time_dynamics!
 
 end
 using .NumericalIntegration

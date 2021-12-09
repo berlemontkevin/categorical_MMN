@@ -14,9 +14,13 @@ export gaba_syn, ampa_syn, nmda_syn
 export sst_cell_with_adaptation
 export layer_bump
 export parameters_bump_attractor, parameters_inter_microcircuit, parameters_interneurons, parameters_microcircuit, parameters_syn_strength_microcircuit
-export neuron
+export neuron, euler_method
 export adaptation_variables
 export get_firing_rate
+
+export ring_microcircuit, ring_integrator, neural_network
+
+
 ##############################################################################################################
 # Abstract types
 ###############################################################################################################
@@ -496,7 +500,7 @@ Mutable structure for the dynamical variables of a rectified linear neuron
     Iinput::Float64 = 0.0
     Iexc::Float64 = 0.0
     Iinh::Float64 = 0.0
-    Ibg::Float64 = 300.0 * 0.001
+    Ibg::Float64 = 329.0 * 0.001
     Itot::Float64 = 0.0
     Inoise::Float64 = 0.0
     Istim::Float64 = 0.0
@@ -647,9 +651,9 @@ Structure of a neural integrator
 """
  @with_kw struct neural_integrator <: neuron
     dynamique_variables::dynamique_rectified_linear = dynamique_rectified_linear()
-    τ::Float64 = 0.8 
+    τ::Float64 = 0.2#0.8 
     dt::Float64 = 0.0005
-    α::Float64 = 0.9  # 0.8 before
+    α::Float64 = 0.5 #0.9  # 0.8 before
     a::Float64 = 135.0
     b::Float64 = 54.0
     c::Float64 = 0.308 # secondes
@@ -666,7 +670,7 @@ Structure of a neural integrator
 
     Ibg::Float64 = 310.0 * 0.001
     OU_process::OU_process = OU_process()
-    name::String
+    name::String = "temp"
     r_save::Vector{Float64} = [0.43]		
     Iexc_save::Vector{Float64} = [0.0]
     Iinh_save::Vector{Float64} = [0.0]
@@ -781,8 +785,8 @@ Parameters specific to interneurons. THis current version, assume full connectio
     Ibg_sst::Float64 = 0.25
     Ibg_pv::Float64 = 0.29
     Ibg_ngfc::Float64 = 0.25
-    top_down_to_interneurons::Vector{Float64} = [0.66, 0.34, 0.0,0.5] 
-
+    top_down_to_interneurons::Vector{Float64} = 0.1.*[0.66, 0.34, 0.0,0.25] 
+    # with 0.01 the normalization factor of top-down
 
 end
 
@@ -804,7 +808,8 @@ Parameters of a ring model
 @with_kw struct parameters_bump_attractor
     num_circuits::Int = 128
     σ::Float64 = 43.2
-
+    Jminus::Float64 = -0.5
+    Jplus::Float64 = 1.43 #nA
 end
 
 
@@ -840,9 +845,9 @@ Strucutre of a microcircuit (3 interneurons, soma, dendrite and integrator)
     pv::pv_cell
     dend::D
     ngfc::ngfc_cell
-    integrator::neural_integrator
+    integrator::neural_integrator = neural_integrator()
     name::String = "microciruit"
-    eq_diff_method::eq_diff_method = euler_method()
+    eq_diff_method::euler_method = euler_method()
 
 end
 export microcircuit
@@ -851,19 +856,40 @@ export microcircuit
 Structure of a ring model of linear integrator
 """
 @with_kw struct ring_integrator <: ring_layer
-    neurons::Vector{neural_integrator}
+    neurons::SVector{64,neural_integrator}
     name::String = "ring_integrator"
-    eq_diff_method::eq_diff_method = euler_method()
+    eq_diff_method::euler_method = euler_method()
     parameters::parameters_bump_attractor = parameters_bump_attractor()
-
+    parameters_microcircuit::parameters_microcircuit = parameters_microcircuit()
 
 end
 export ring_integrator
 
 """
+Structure of a ring model of microcircuit
+"""
+@with_kw struct ring_microcircuit{T <: pyr_cell, D <: dendrite, E <: eq_diff_method} <: ring_layer
+    neurons::SVector{128,microcircuit{T,D}}
+    name::String = "ring_microcircuit"
+    eq_diff_method::E = euler_method()
+    parameters::parameters_bump_attractor = parameters_bump_attractor()
+    parameters_m::parameters_microcircuit = parameters_microcircuit()
+    parameters_i::parameters_interneurons = parameters_interneurons()
+
+end
+export ring_microcircuit
+
+"""
 Structure of the full network
 """
-
+@with_kw struct neural_network{T <: pyr_cell, D <: dendrite, E <: eq_diff_method}
+    ring_integrator::ring_integrator
+    list_microcircuit::ring_microcircuit{T,D,E}
+    name::String = "neural_network"
+    eq_diff_method::E = euler_method()
+   
+end
+export neural_network
 
 """
 Structure of ring layer
@@ -871,7 +897,7 @@ Structure of ring layer
 @with_kw struct layer_bump{T <: pyr_cell, D <: dendrite, E <: eq_diff_method}
     bump_param::parameters_bump_attractor
     list_microcircuit::SVector{128,microcircuit{T,D}}
-    eq_diff_method::eq_diff_method = euler_method() 
+    eq_diff_method::E 
 end
 export layer_bump
 
@@ -944,6 +970,52 @@ function get_firing_rate(layer_bump::layer_bump{T , D, E} where {T <: pyr_cell ,
 
     return firing_rate
 end
+
+function get_firing_rate(layer_bump::neural_network{T , D, E} where {T <: pyr_cell ,D <:dendrite, E <: eq_diff_method}, time::Float64, name::String)
+   
+    size = layer_bump.list_microcircuit.parameters.num_circuits
+   
+    firing_rate = zeros(size)
+
+    time = floor(Int,time)
+
+    for i=1:size
+        if name =="soma"
+            firing_rate[i] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].soma, time)
+        elseif name =="vip"
+            firing_rate[i] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].vip, time)
+        elseif name =="pv"
+            firing_rate[i] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].pv, time)
+        elseif name =="sst"
+            firing_rate[i] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].sst, time)
+        elseif name =="integrator"
+            firing_rate[i] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].integrator, time)
+        elseif name =="ngfc"
+            firing_rate[i] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].ngfc, time)
+        end
+
+    end
+
+    return firing_rate
+end
+
+function get_firing_rate(layer_bump::ring_integrator, time::Float64)
+   
+    size = 64#layer_bump.parameters.num_circuits
+   
+    firing_rate = zeros(size)
+
+    time = floor(Int,time)
+
+    for i=1:size
+     
+            firing_rate[i] = get_firing_rate(layer_bump.neurons[i], time)
+      
+
+    end
+
+    return firing_rate
+end
 export get_firing_rate
 
 
@@ -987,6 +1059,49 @@ function get_firing_rate(layer_bump::layer_bump{T , D, E} where {T <: pyr_cell ,
     return firing_rate
 end
 
+function get_firing_rate(layer_bump::neural_network{T , D, E} where {T <: pyr_cell ,D <:dendrite, E <: eq_diff_method}, timerange::StepRange{Int64, Int64}, name::String)
+   
+    size = layer_bump.list_microcircuit.parameters.num_circuits
+   
+    firing_rate = zeros(size,length(timerange))
+
+    for i=1:size
+        if name =="soma"
+            firing_rate[i,:] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].soma, timerange)
+        elseif name =="vip"
+            firing_rate[i,:] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].vip, timerange)
+        elseif name =="pv"
+            firing_rate[i,:] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].pv, timerange)
+        elseif name =="sst"
+            firing_rate[i,:] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].sst, timerange)
+        elseif name =="integrator"
+            firing_rate[i,:] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].integrator, timerange)
+        elseif name =="ngfc"
+            firing_rate[i,:] = get_firing_rate(layer_bump.list_microcircuit.neurons[i].ngfc, timerange)
+        end
+
+    end
+
+    return firing_rate
+end
+
+
+function get_firing_rate(layer_bump::ring_integrator, timerange::StepRange{Int64, Int64})
+   
+    size = 64#layer_bump.parameters.num_circuits
+   
+    firing_rate = zeros(size,length(timerange))
+
+    for i=1:size
+     
+            firing_rate[i,:] = get_firing_rate(layer_bump.neurons[i], timerange)
+       
+    end
+
+    return firing_rate
+end
+
+
 """
     get_firing_rate(layer_bump, timerange, name of the neuron, indice of the microcircuit)
 
@@ -1009,6 +1124,29 @@ function get_firing_rate(layer_bump::layer_bump{T , D, E} where {T <: pyr_cell ,
     end
 end
 
+function get_firing_rate(layer_bump::neural_network{T , D, E} where {T <: pyr_cell ,D <:dendrite, E <: eq_diff_method}, timerange::StepRange{Int64, Int64}, name::String, indice::Int)
+   
+    if name =="soma"
+        return get_firing_rate(layer_bump.list_microcircuit.neurons[indice].soma, timerange)
+    elseif name =="vip"
+        return get_firing_rate(layer_bump.list_microcircuit.neurons[indice].vip, timerange)
+    elseif name =="pv"
+        return get_firing_rate(layer_bump.list_microcircuit.neurons[indice].pv, timerange)
+    elseif name =="sst"
+        return get_firing_rate(layer_bump.list_microcircuit.neurons[indice].sst, timerange)
+    elseif name =="integrator"
+        return get_firing_rate(layer_bump.list_microcircuit.neurons[indice].integrator, timerange)
+    elseif name =="ngfc"
+        return get_firing_rate(layer_bump.list_microcircuit.neurons[indice].ngfc, timerange)
+    end
+end
+
+function get_firing_rate(layer_bump::ring_integrator, timerange::StepRange{Int64, Int64},indice::Int)
+   
+   
+        return get_firing_rate(layer_bump.neurons[indice], timerange)
+    
+end
 end
 
 using .get_functions
