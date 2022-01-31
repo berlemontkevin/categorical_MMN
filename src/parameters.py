@@ -5,15 +5,15 @@ import numpy as np
 
 PARAMS_Integrator = {
     'Ncells': np.int32(128),
-    'alpha': 0.5,
+    'alpha': 0.6,
     'a': 135.0,
     'b': 54.0,
     'd': 0.308, #seconds
     'Ibg': 310 * 0.001, #nA 310
     'sigma_con': 43.2,
-    'Jmin': -0.5,
+    'Jmin': -0.5,#0.5
     'Jmax':1.2,#1.43,
-    'tau':0.2, #seconds
+    'tau':0.4, #seconds
     'tau_NMDA': 60 * 0.001,
     'gamma_NMDA': 0.641 ,
     # 'weight_to_dend': 0.4,
@@ -40,15 +40,15 @@ PARAMS_Synapses_Integrator = {
     'weight_to_dend': 0.7,#0.5
     'weight_to_pv': 0.066,
     'weight_to_vip': 0.035,
-    'weight_to_ndf': 0.155/30,
+    'weight_to_ndf': 0.155/50,
     'sigma_to_dend': 43.2,
     'sigma_to_ndf': 1.2,
     'sigma_to_pv': 43.2,
     'sigma_to_vip': 43.2,
     'dt': 0.001,
     'gamma': 0.01,
-    'lambda_dec': 0.2,
-    'wmax': 0.15/15
+    'lambda_dec': 10.0,#0.2,
+    'wmax': 2.0*0.15/20
     }
 
 PARAMS_PC= {
@@ -64,7 +64,7 @@ PARAMS_PC= {
     'weight_to_vip': 0.158,
     'weight_to_sst': 0.8835,
     'weight_to_pv':0.18,
-    'weight_to_integrator': 0.40,#0.15
+    'weight_to_integrator': 0.50,#0.15
     'sigma_to_sst': 360.0,#360.0,#43.2,
     'sigma_to_pv': 43.2,
     'sigma_to_integrator': 1.0,#43.2,
@@ -126,7 +126,10 @@ PARAMS_SST= {
     'gamma_GABA': 0.2,
     'tau_adaptation': 0.1,
     'gA': -0.01,
-    'dt': 0.001
+    'dt': 0.001,
+    'wmax': 0.19/15,#/20
+    'gamma': 0.007,#0.005 ,
+    'lambda_dec': 0.2
 }
 
 PARAMS_VIP= {
@@ -168,7 +171,7 @@ PARAMS_NDF= {
     'dt': 0.001,
     'wmax': 0.89/15,#/20
     'gamma': 0.007,#0.005 ,
-    'lambda_dec': 0.2
+    'lambda_dec': 1.0#0.2
 }
 
 PARAMS_Synapses= {
@@ -182,7 +185,7 @@ PARAMS_Synapses= {
 PARAMS_Simulation = {
     'dt': 0.001,
     't_start': 0.0,
-    't_total': 8.0
+    't_total': 16.0
 }
 
 PARAMS_ALL = {
@@ -200,7 +203,8 @@ PARAMS_Stimulus = {
     'strength': 0.2,
     'Tinter': 0.5,
     'Tstim': 0.2,
-    'nbr_rep': 3,
+    'nbr_rep': 6,
     'std_id': 20,
-    'dev_id': 88
+    'dev_id': 88,
+    'Tresting': 4.0
 }

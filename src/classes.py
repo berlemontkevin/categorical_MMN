@@ -358,7 +358,7 @@ class NDF_Network(NeuronLayer):
         self.input_current = np.zeros(self.Ncells)
         self.rate_now = np.zeros(self.Ncells)
         self.weights = np.zeros((self.Ncells, self.Ncells))
-    
+        self.theta = np.zeros(self.Ncells)
      
     
     def fI_curve(self):
@@ -876,6 +876,16 @@ class Network:
         temp = bf.Hebb_with_decay(self.W_integrator_to_ndf, self.integrator_layer.get_rate(), self.ndf_layer.get_rate(), self.PARAMS_Integrator['gamma'], self.PARAMS_Integrator['lambda_dec'], wmax = self.PARAMS_Integrator['wmax'])
         self.W_integrator_to_ndf = self.W_integrator_to_ndf + self.PARAMS_Integrator['dt']*temp
     
+        # temp, theta = bf.BCM_rule(self.W_integrator_to_ndf, self.integrator_layer.get_rate(), self.ndf_layer.get_rate(), self.ndf_layer.theta, epsilon = 0.05)
+        # self.ndf_layer.theta = theta
+        # self.W_integrator_to_ndf = self.W_integrator_to_ndf + self.PARAMS_Integrator['dt']*temp
+        # self.W_integrator_to_ndf = bf.threshold_matrix(self.W_integrator_to_ndf, self.PARAMS_Integrator['wmax'])
+        # self.W_integrator_to_ndf = np.maximum(self.W_integrator_to_ndf, 0)
+        
+        
+        # temp = bf.Hebb_with_decay(-self.W_sst_to_dend, self.sst_layer.get_rate(), self.pc_layer.get_rate(), self.PARAMS_SST['gamma'], self.PARAMS_SST['lambda_dec'], wmax = self.PARAMS_SST['wmax'])
+        # self.W_sst_to_dend = self.W_sst_to_dend - self.PARAMS_SST['dt']*temp
+    
     
     #endregion
    
@@ -989,7 +999,7 @@ class Network:
             self.save_pc_layer[:,i] = self.pc_layer.get_rate()#self.pc_layer.Iinh_to_dend#self.pc_layer.get_rate()#self.pc_layer.Idend_output
             self.save_pv_layer[:,i] = self.pv_layer.get_rate()#np.diag(self.W_ndf_to_dend) #self.pv_layer.get_rate()#self.pc_layer.sA * self.pc_layer.gA
             self.save_sst_layer[:,i] = self.sst_layer.get_rate()#self.pc_layer.Iexc_to_dend#self.sst_layer.get_rate()
-            self.save_vip_layer[:,i] =  self.vip_layer.get_rate()#self.vip_layer.get_rate()#np.sum(self.W_sst_to_dend*self.S_sst_to_dend,axis=1)#self.vip_layer.get_rate()#np.sum(self.W_pv_to_pc * self.S_pv_to_pc, axis = 1)
+            self.save_vip_layer[:,i] =  self.W_integrator_to_ndf[20,:]#np.sum(self.W_integrator_to_ndf*self.S_integrator_to_ndf, axis = 1)#self.vip_layer.get_rate()#np.sum(self.W_sst_to_dend*self.S_sst_to_dend,axis=1)#self.vip_layer.get_rate()#np.sum(self.W_pv_to_pc * self.S_pv_to_pc, axis = 1)
             self.save_ndf_layer[:,i] = self.ndf_layer.get_rate()#np.diag(self.W_ndf_to_dend)#np.sum(self.W_pv_to_pc * self.S_pv_to_pc, axis = 1)#self.ndf_layer.get_rate()#self.pc_layer.input_current
             self.save_integrator_layer[:,i] = self.integrator_layer.get_rate()
             
@@ -1025,19 +1035,20 @@ class Stimulus:
         nbr_rep = self.PARAMS_Stimulus['nbr_rep']
         std_id = self.PARAMS_Stimulus['std_id']
         dev_id = self.PARAMS_Stimulus['dev_id']
+        Tresting = self.PARAMS_Stimulus['Tresting']
         
         nbr_stim = 0
         nbr_stim2 = -nbr_rep
         for t in range(self.PARAMS_Stimulus['N_t']):
-            if t < Tinter/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt']:
+            if t < Tinter/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
                 self.stimulus[:,t] = 0.0
-            elif t < (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt']:
+            elif t < (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
                 if nbr_stim < nbr_rep:
                     # print(nbr_stim)
                     self.stimulus[:,t] = bf.generate_ring_stim(std_id, 43.2, self.Ncells, self.PARAMS_Stimulus['strength'])
                
                 else: 
-                    if nbr_stim2 < nbr_rep:
+                    if nbr_stim2 < 4:#nbr_rep:
     
                         self.stimulus[:,t] = bf.generate_ring_stim(dev_id, 43.2, self.Ncells, self.PARAMS_Stimulus['strength'])
                     
@@ -1045,10 +1056,10 @@ class Stimulus:
                         self.stimulus[:,t] = bf.generate_ring_stim(std_id, 43.2, self.Ncells, self.PARAMS_Stimulus['strength'])
 
                     
-            if t > (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt']:
-                print(nbr_stim)
+            if t > (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                print(nbr_stim2)
                 nbr_stim += 1
-                nbr_stim2 +=2
+                nbr_stim2 +=1
         
 #endregion
         

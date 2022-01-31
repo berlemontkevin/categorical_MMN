@@ -82,3 +82,32 @@ def Hebb_with_decay(w, rpre, rpost, gamma, lambda_dec, wmax = 1.0, beta = 1.0):
     # let's use the fact that for now, connections are sparse from ndf to dend
     
     return gamma * rtot * soft_bound(w, wmax, beta) - lambda_dec*w
+
+def anti_Hebb_with_decay(w, rpre, rpost, gamma, lambda_dec, wmax = 1.0, beta = 1.0):
+    ''' Return de anti Hebbian update rule with decay
+    It takes am atrix into argument
+    '''
+    rtot = np.outer(rpre,rpost)
+    # let's use the fact that for now, connections are sparse from ndf to dend
+    
+    return -gamma * rtot * soft_bound(w, wmax, beta) - lambda_dec*w
+
+@njit(cache=True)
+def BCM_rule(w, rpre, rpost, theta, epsilon = 0.0):
+    ''' Return the BCM rule with theta as the average of the firing rates
+        To compute the average of the firing raqte, the trick is to multiply by exp(-deltat/tau) at each time step
+        Then the average is the weighted sum? (not technically correct but good enough?)
+    '''
+    router = np.outer(rpre,rpost)
+    theta = (theta*np.exp(-0.001/0.1) + rpost*rpost*(1-np.exp(-0.001/0.1)))
+    temp = 0.0001*(rpost - theta)*router# - epsilon*w
+    
+    
+    return temp, theta
+
+
+@njit(cache=True)
+def threshold_matrix(m,threshold):
+    ''' Return the matrix with saturated values above threshold
+    '''
+    return np.minimum(m,threshold)
