@@ -4,7 +4,7 @@
 import numpy as np
 
 PARAMS_Integrator = {
-    'Ncells': np.int32(128),
+    'Ncells': 128,
     'alpha': 0.6,
     'a': 135.0,
     'b': 54.0,
@@ -16,16 +16,7 @@ PARAMS_Integrator = {
     'tau':0.4, #seconds
     'tau_NMDA': 60 * 0.001,
     'gamma_NMDA': 0.641 ,
-    # 'weight_to_dend': 0.4,
-    # 'weight_to_pv': 0.056,
-    # 'weight_to_vip': 0.045,
-    # 'weight_to_ndf': 10.8,#0.025,
-    # 'sigma_to_dend': 43.2,
-    # 'sigma_to_ndf': 1.0,#43.2,
-    # 'sigma_to_pv': 43.2,
-    # 'sigma_to_vip': 43.2,
     'depression_to_vip': True,
-    # 'depression_to_ndf': True,
     'depression_to_dend': True,
     'depression_to_pv': True,
     'fD': 0.2,
@@ -48,11 +39,12 @@ PARAMS_Synapses_Integrator = {
     'dt': 0.001,
     'gamma': 0.01,
     'lambda_dec': 10.0,#0.2,
-    'wmax': 2.0*0.15/20
+    'wmax': 2.0*0.15/20,
+    'bool_plasticity': 1
     }
 
 PARAMS_PC= {
-    'Ncells': np.int32(128),
+    'Ncells': 128,
     'a': 135.0,
     'b': 54.0,
     'd': 0.308, #seconds
@@ -86,7 +78,7 @@ PARAMS_PC= {
 }
 
 PARAMS_PV= {
-    'Ncells': np.int32(128),
+    'Ncells': 128,
     'c_I': 330.0,
     'r0':-95.0,
     'Ibg': 290 * 0.001, #nA 250
@@ -106,7 +98,7 @@ PARAMS_PV= {
 }
 
 PARAMS_SST= {
-    'Ncells': np.int32(128),
+    'Ncells': 128,
     'c_I': 132.0,
     'r0':-33.0,
     'Ibg': 290 * 0.001, #nA
@@ -133,7 +125,7 @@ PARAMS_SST= {
 }
 
 PARAMS_VIP= {
-    'Ncells': np.int32(128),
+    'Ncells': 128,
     'c_I': 132.0,
     'r0':-33.0,
     'Ibg': 290 * 0.001, #nA
@@ -152,7 +144,7 @@ PARAMS_VIP= {
 }
 
 PARAMS_NDF= {
-    'Ncells': np.int32(128),
+    'Ncells': 128,
     'c_I': 132.0,
     'r0':-33.0,
     'Ibg': 290 * 0.001, #nA
@@ -169,9 +161,11 @@ PARAMS_NDF= {
     'tau_GABA': 0.005,
     'gamma_GABA': 0.2,
     'dt': 0.001,
-    'wmax': 0.89/15,#/20
+    'wmax': 2.0*0.89/15,#/20
     'gamma': 0.007,#0.005 ,
-    'lambda_dec': 1.0#0.2
+    'lambda_dec': 1.0,#0.2
+    'bool_plasticity': 1,
+    'sigma_to_dend': 1.2,
 }
 
 PARAMS_Synapses= {
@@ -188,6 +182,23 @@ PARAMS_Simulation = {
     't_total': 16.0
 }
 
+
+
+PARAMS_Stimulus = {
+    'type': 'deterministic_MMN',
+    'strength_std': 0.2,
+    'strength_dev': 0.2,
+    'sigma_std': 43.2,
+    'sigma_dev': 43.2,
+    'Tinter': 0.5,
+    'Tstim': 0.2,
+    'nbr_rep_std': 6,
+    'nbr_rep_dev': 2,
+    'std_id': 20, # the idx of the neuron receiving the stimulus
+    'dev_id': 88,
+    'Tresting': 4.0 #initial resting time in seconds
+}
+
 PARAMS_ALL = {
     'Synapses': PARAMS_Synapses,
     'Simulation': PARAMS_Simulation,
@@ -196,15 +207,6 @@ PARAMS_ALL = {
     'PARAMS_PV': PARAMS_PV,
     'PARAMS_SST': PARAMS_SST,
     'PARAMS_VIP': PARAMS_VIP,
-    'PARAMS_NDF': PARAMS_NDF
-}
-
-PARAMS_Stimulus = {
-    'strength': 0.2,
-    'Tinter': 0.5,
-    'Tstim': 0.2,
-    'nbr_rep': 6,
-    'std_id': 20,
-    'dev_id': 88,
-    'Tresting': 4.0
+    'PARAMS_NDF': PARAMS_NDF,
+    'Stimulus': PARAMS_Stimulus
 }

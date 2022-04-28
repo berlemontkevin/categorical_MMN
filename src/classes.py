@@ -1,9 +1,10 @@
 import numpy as np
 from numba.experimental import jitclass
 from numba import float64, int32
-
+import pandas as pd
 import basic_functions as bf
-
+import pickle
+import json
 
 #region General Neuron
 
@@ -103,7 +104,7 @@ class Integrator_Layer(NeuronLayer):
      
                         
     def fI_curve(self):
-        self.input_current += self.Ibg + self.Iext
+        self.set_input_current(self.get_input_current() + self.Ibg + self.Iext) 
         self.set_input_current(bf.relu(self.input_current))
         
         return bf.abott_fI_curve(self.input_current, self.a, self.b, self.d)
@@ -221,18 +222,18 @@ class PC_Layer(NeuronLayer):
     def fI_curve(self,dt):
         self.sA = bf.euler_update(self.sA, -self.sA/self.tau_adaptation + self.get_rate(), dt)
         self.Idend_output = self.current_output_dendrite(self.Iinh_to_dend,self.Iexc_to_dend,**self.param_dend)
-        self.input_current =  self.input_current + self.Ibg_soma + self.Idend_output  + self.Iext + self.gA*self.sA
+        self.set_input_current(  self.get_input_current() + self.Ibg_soma + self.Idend_output  + self.Iext + self.gA*self.sA)
         self.set_input_current(bf.relu(self.get_input_current()))
         
-        # temp=np.divide(self.a*self.get_input_current() - self.b, 1.0 - np.exp(-self.d*(self.a*self.get_input_current() - self.b)))
+      
         return bf.abott_fI_curve(self.get_input_current(), self.a, self.b, self.d)
     
         
     def dr_dt(self,dt):
         self.set_rate(np.maximum(self.rate_now,0.0))
               
-        temp = (-self.get_rate() + self.fI_curve(dt))*dt/self.tau_soma 
-        self.set_rate(self.get_rate() +  temp)
+        # temp = (-self.get_rate() + self.fI_curve(dt))*dt/self.tau_soma 
+        self.set_rate(bf.leaky_integrator(self.rate_now, self.fI_curve(dt),dt, self.tau_soma)) 
      
 #endregion   
 
@@ -264,7 +265,8 @@ class PV_Network(NeuronLayer):
     
     
     def dr_dt(self,dt):
-        self.set_rate(bf.euler_update(self.rate_now, self.dr(), dt))
+        self.set_rate(bf.leaky_integrator(self.rate_now, self.fI_curve(), dt, self.tau))
+        # self.set_rate(bf.euler_update(self.rate_now, , dt))
         
 #endregion       
         
@@ -299,7 +301,9 @@ class VIP_Network(NeuronLayer):
     
     
     def dr_dt(self,dt):
-        self.set_rate(bf.euler_update(self.rate_now, self.dr(), dt))
+        self.set_rate(bf.leaky_integrator(self.rate_now, self.fI_curve(), dt, self.tau))
+
+        # self.set_rate(bf.euler_update(self.rate_now, self.dr(), dt))
 #endregion         
 
 #region SST_Network
@@ -337,7 +341,9 @@ class SST_Network(NeuronLayer):
     
     
     def dr_dt(self,dt):
-        self.set_rate(bf.euler_update(self.rate_now, self.dr(dt), dt))
+        self.set_rate(bf.leaky_integrator(self.rate_now, self.fI_curve(dt), dt, self.tau))
+
+        # self.set_rate(bf.euler_update(self.rate_now, self.dr(dt), dt))
 #endregion            
 
 
@@ -372,7 +378,10 @@ class NDF_Network(NeuronLayer):
     
     
     def dr_dt(self,dt):
-        self.set_rate(bf.euler_update(self.rate_now, self.dr(), dt))
+        
+        self.set_rate(bf.leaky_integrator(self.rate_now, self.fI_curve(), dt, self.tau))
+
+        # self.set_rate(bf.euler_update(self.rate_now, self.dr(), dt))
 #endregion          
 
         
@@ -382,7 +391,7 @@ class Network:
     It will define the dynamics methods too.
     '''
     
-    def __init__(self, PARAMS_Integrator,PARAMS_Synapses_Integrator, PARAMS_PC, PARAMS_PV, PARAMS_SST, PARAMS_VIP, PARAMS_NDF, PARAMS_Simulation, **kwargs):
+    def __init__(self, PARAMS_Integrator,PARAMS_Synapses_Integrator, PARAMS_PC, PARAMS_PV, PARAMS_SST, PARAMS_VIP, PARAMS_NDF, PARAMS_Simulation, PARAMS_Stimulus, **kwargs):
         
         self.PARAMS_Integrator = {**PARAMS_Integrator, **PARAMS_Synapses_Integrator}
         self.PARAMS_PC = PARAMS_PC
@@ -399,6 +408,7 @@ class Network:
         self.vip_layer = VIP_Network(**PARAMS_VIP)
         
         self.PARAMS_Simulation = PARAMS_Simulation
+        self.PARAMS_Stimulus = PARAMS_Stimulus
         
         #region Define the connections between the different network
         self.W_sst_to_vip = np.zeros((self.sst_layer.Ncells, self.vip_layer.Ncells))
@@ -499,6 +509,27 @@ class Network:
         self.save_ndf_layer = np.zeros((self.ndf_layer.Ncells, self.PARAMS_Simulation['N_t']))
         self.save_integrator_layer = np.zeros((self.integrator_layer.Ncells, self.PARAMS_Simulation['N_t']))
         
+        # saving some weights
+        self.save_W_standard_integrator_to_ndf = np.zeros((self.ndf_layer.Ncells, self.PARAMS_Simulation['N_t']))
+        self.save_W_dev_integrator_to_ndf = np.zeros((self.ndf_layer.Ncells, self.PARAMS_Simulation['N_t']))
+        
+        self.save_W_standard_ndf_to_dend = np.zeros((self.pc_layer.Ncells, self.PARAMS_Simulation['N_t']))
+        self.save_W_dev_ndf_to_dend = np.zeros((self.pc_layer.Ncells, self.PARAMS_Simulation['N_t']))
+        
+        self.save_W_standard_integrator_to_dend = np.zeros((self.pc_layer.Ncells, self.PARAMS_Simulation['N_t']))
+        self.save_W_dev_integrator_to_dend = np.zeros((self.pc_layer.Ncells, self.PARAMS_Simulation['N_t']))
+        
+        
+        
+        self.PARAMS_ALL = { 
+    'Simulation': self.PARAMS_Simulation,
+    'PARAMS_INT': self.PARAMS_Integrator,
+    'PARAMS_PC': self.PARAMS_PC,
+    'PARAMS_PV': self.PARAMS_PV,
+    'PARAMS_SST': self.PARAMS_SST,
+    'PARAMS_VIP': self.PARAMS_VIP,
+    'PARAMS_NDF': self.PARAMS_NDF,
+    'Stimulus': self.PARAMS_Stimulus}
     
     #region Define connectivity matrices for the network
     def create_connectivity_from_SST(self):
@@ -517,7 +548,9 @@ class Network:
     def create_connectivity_from_NDF(self):
         '''create the weights matrices going from NDF neurons
         '''
-        np.fill_diagonal(self.W_ndf_to_dend, self.PARAMS_NDF['weight_to_dend'])
+        # np.fill_diagonal(self.W_ndf_to_dend, self.PARAMS_NDF['weight_to_dend'])
+        self.W_ndf_to_dend[:, :] = bf.create_ring_connectivity(self.ndf_layer.Ncells, self.pc_layer.Ncells, self.PARAMS_NDF['weight_to_dend'], self.PARAMS_NDF['sigma_to_dend'])
+        
         np.fill_diagonal(self.W_ndf_to_pv, self.PARAMS_NDF['weight_to_pv'])
 
     def create_connectivity_from_PV(self):
@@ -871,20 +904,12 @@ class Network:
         '''
     
         temp = bf.Hebb_with_decay(-self.W_ndf_to_dend, self.ndf_layer.get_rate(), self.pc_layer.get_rate(), self.PARAMS_NDF['gamma'], self.PARAMS_NDF['lambda_dec'], wmax = self.PARAMS_NDF['wmax'])
-        self.W_ndf_to_dend = self.W_ndf_to_dend - self.PARAMS_NDF['dt']*temp
+        self.W_ndf_to_dend = self.W_ndf_to_dend - self.PARAMS_NDF['dt']*temp*self.PARAMS_NDF['bool_plasticity']
     
         temp = bf.Hebb_with_decay(self.W_integrator_to_ndf, self.integrator_layer.get_rate(), self.ndf_layer.get_rate(), self.PARAMS_Integrator['gamma'], self.PARAMS_Integrator['lambda_dec'], wmax = self.PARAMS_Integrator['wmax'])
-        self.W_integrator_to_ndf = self.W_integrator_to_ndf + self.PARAMS_Integrator['dt']*temp
+        self.W_integrator_to_ndf = self.W_integrator_to_ndf + self.PARAMS_Integrator['dt']*temp*self.PARAMS_Integrator['bool_plasticity']
     
-        # temp, theta = bf.BCM_rule(self.W_integrator_to_ndf, self.integrator_layer.get_rate(), self.ndf_layer.get_rate(), self.ndf_layer.theta, epsilon = 0.05)
-        # self.ndf_layer.theta = theta
-        # self.W_integrator_to_ndf = self.W_integrator_to_ndf + self.PARAMS_Integrator['dt']*temp
-        # self.W_integrator_to_ndf = bf.threshold_matrix(self.W_integrator_to_ndf, self.PARAMS_Integrator['wmax'])
-        # self.W_integrator_to_ndf = np.maximum(self.W_integrator_to_ndf, 0)
-        
-        
-        # temp = bf.Hebb_with_decay(-self.W_sst_to_dend, self.sst_layer.get_rate(), self.pc_layer.get_rate(), self.PARAMS_SST['gamma'], self.PARAMS_SST['lambda_dec'], wmax = self.PARAMS_SST['wmax'])
-        # self.W_sst_to_dend = self.W_sst_to_dend - self.PARAMS_SST['dt']*temp
+  
     
     
     #endregion
@@ -992,16 +1017,134 @@ class Network:
         
         for i in range(self.PARAMS_Simulation['N_t']):
             self.pc_layer.Iext[:] = stim[:,i]
-            # if i>1000:
-            #     self.pc_layer.Iext[:] = 0.0
+         
             self.time_step()
-            # print(i)
-            self.save_pc_layer[:,i] = self.pc_layer.get_rate()#self.pc_layer.Iinh_to_dend#self.pc_layer.get_rate()#self.pc_layer.Idend_output
-            self.save_pv_layer[:,i] = self.pv_layer.get_rate()#np.diag(self.W_ndf_to_dend) #self.pv_layer.get_rate()#self.pc_layer.sA * self.pc_layer.gA
-            self.save_sst_layer[:,i] = self.sst_layer.get_rate()#self.pc_layer.Iexc_to_dend#self.sst_layer.get_rate()
-            self.save_vip_layer[:,i] =  self.W_integrator_to_ndf[20,:]#np.sum(self.W_integrator_to_ndf*self.S_integrator_to_ndf, axis = 1)#self.vip_layer.get_rate()#np.sum(self.W_sst_to_dend*self.S_sst_to_dend,axis=1)#self.vip_layer.get_rate()#np.sum(self.W_pv_to_pc * self.S_pv_to_pc, axis = 1)
-            self.save_ndf_layer[:,i] = self.ndf_layer.get_rate()#np.diag(self.W_ndf_to_dend)#np.sum(self.W_pv_to_pc * self.S_pv_to_pc, axis = 1)#self.ndf_layer.get_rate()#self.pc_layer.input_current
-            self.save_integrator_layer[:,i] = self.integrator_layer.get_rate()
+            self.save_all_layers(i)
+            
+            
+            
+    def save_all_layers(self,i):
+        ''' Save all layers of the network
+        '''
+        
+        self.save_pc_layer[:,i] = self.pc_layer.get_rate()
+        self.save_pv_layer[:,i] = self.pv_layer.get_rate()
+        self.save_sst_layer[:,i] = self.sst_layer.get_rate()
+        self.save_vip_layer[:,i] = self.vip_layer.get_rate()
+        self.save_ndf_layer[:,i] = self.ndf_layer.get_rate()
+        self.save_integrator_layer[:,i] = self.integrator_layer.get_rate()
+        
+        # save the weights received by the neuron selective to it
+        self.save_W_dev_integrator_to_ndf[:,i] = self.W_integrator_to_ndf[self.PARAMS_Stimulus['dev_id']]
+        self.save_W_standard_integrator_to_ndf[:,i] = self.W_integrator_to_ndf[self.PARAMS_Stimulus['std_id']]
+        
+        self.save_W_dev_integrator_to_dend[:,i] = self.W_integrator_to_dend[self.PARAMS_Stimulus['dev_id']]
+        self.save_W_standard_integrator_to_dend[:,i] = self.W_integrator_to_dend[self.PARAMS_Stimulus['std_id']]
+        
+        self.save_W_dev_ndf_to_dend[:,i] = self.W_ndf_to_dend[self.PARAMS_Stimulus['dev_id']]
+        self.save_W_standard_ndf_to_dend[:,i] = self.W_ndf_to_dend[self.PARAMS_Stimulus['std_id']]
+        
+        
+        
+        
+    def write_firing_rates_in_file(self, name):
+        ''' Write all the savedfiring rates in a pickle file
+        '''
+        
+        temp = bf.compute_list_time_input(self.PARAMS_Simulation['dt'],self.PARAMS_Simulation['t_total'], self.PARAMS_Stimulus['Tinter'], self.PARAMS_Stimulus['Tresting'], self.PARAMS_Stimulus['Tstim'])
+        
+        save_dict = {
+            'pc_firing_rates': self.save_pc_layer[:,temp],
+            'sst_firing_rates': self.save_sst_layer[:,temp],
+            'vip_firing_rates': self.save_vip_layer[:,temp],
+            'ndf_firing_rates': self.save_ndf_layer[:,temp],
+            'pv_firing_rates': self.save_pv_layer[:,temp],
+            'integrator_firing_rates': self.save_integrator_layer[:,temp],
+            'params_all': self.PARAMS_ALL
+        }
+        
+        # Store data (serialize)    
+        with open(name, 'w') as handle:
+            json.dump(save_dict, handle, cls = NumpyEncoder)
+        
+    def compute_mean_firing_rate(self,stim = None, delay = 0.1):
+        ''' '''
+        if self.PARAMS_Stimulus['type'] not in ['multi_control_paradigm','probabilistic_MMN','deterministic_MMN']:
+            raise ValueError('The function compute_mean_firing_rate is only defined for multi_control_paradigm')
+        elif self.PARAMS_Stimulus['type'] == 'multi_control_paradigm':
+            temp = bf.compute_list_time_input(self.PARAMS_Simulation['dt'],self.PARAMS_Simulation['t_total'], self.PARAMS_Stimulus['Tinter'], self.PARAMS_Stimulus['Tresting'], self.PARAMS_Stimulus['Tstim'], delay=delay)
+            
+            mean_temp = np.zeros(len(temp))
+            mean_sum = np.zeros(len(temp))
+            for i in range(len(temp)):
+                mean_temp[i] = np.max(self.save_pc_layer[:,temp[i]])
+
+                mean_sum[i] = np.sum(self.save_pc_layer[:,temp[i]])
+            
+            return np.mean(mean_temp), np.mean(mean_sum)
+        
+        elif self.PARAMS_Stimulus['type'] == 'probabilistic_MMN':
+            std_id = self.PARAMS_Stimulus['std_id']
+            dev_id = self.PARAMS_Stimulus['dev_id']
+            
+            temp = bf.compute_list_time_input(self.PARAMS_Simulation['dt'],self.PARAMS_Simulation['t_total'], self.PARAMS_Stimulus['Tinter'], self.PARAMS_Stimulus['Tresting'], self.PARAMS_Stimulus['Tstim'], delay = delay)
+            
+            is_std = [i for i in range(len(temp)) if np.argmax(self.save_pc_layer[:,temp[i]]) == std_id]
+            is_dev = [i for i in range(len(temp)) if np.argmax(self.save_pc_layer[:,temp[i]]) == dev_id]
+            
+            mean_temp_std = np.zeros(len(is_std))
+            mean_temp_dev = np.zeros(len(is_dev))
+            
+            mean_sum_std = np.zeros(len(is_std))
+            mean_sum_dev = np.zeros(len(is_dev))
+            
+            for i in range(len(is_std)):
+                mean_temp_std[i] = np.max(self.save_pc_layer[:,temp[is_std[i]]])
+                mean_sum_std[i] = np.sum(self.save_pc_layer[:,temp[is_std[i]]])
+                
+            for i in range(len(is_dev)):
+                mean_temp_dev[i] = np.max(self.save_pc_layer[:,temp[is_dev[i]]])
+                mean_sum_dev[i] = np.sum(self.save_pc_layer[:,temp[is_dev[i]]])
+                
+            return np.mean(mean_temp_std), np.mean(mean_temp_dev), np.mean(mean_sum_std), np.mean(mean_sum_dev)
+        
+        elif self.PARAMS_Stimulus['type'] == 'deterministic_MMN':
+           
+            temp = bf.compute_list_time_input(self.PARAMS_Simulation['dt'],self.PARAMS_Simulation['t_total'], self.PARAMS_Stimulus['Tinter'], self.PARAMS_Stimulus['Tresting'], self.PARAMS_Stimulus['Tstim'])
+        
+            save_dict = {
+            'pc_firing_rates': self.save_pc_layer[:,temp],
+            'sst_firing_rates': self.save_sst_layer[:,temp],
+            'vip_firing_rates': self.save_vip_layer[:,temp],
+            'ndf_firing_rates': self.save_ndf_layer[:,temp],
+            'pv_firing_rates': self.save_pv_layer[:,temp],
+            'integrator_firing_rates': self.save_integrator_layer[:,temp],
+            'params_all': self.PARAMS_ALL
+        }
+            
+            
+            Tinter = self.PARAMS_Stimulus['Tinter']
+            Tstim = self.PARAMS_Stimulus['Tstim']
+            nbr_rep_std = self.PARAMS_Stimulus['nbr_rep_std']
+            nbr_rep_dev = self.PARAMS_Stimulus['nbr_rep_dev']
+            std_id = self.PARAMS_Stimulus['std_id']
+            dev_id = self.PARAMS_Stimulus['dev_id']
+            Tresting = self.PARAMS_Stimulus['Tresting']
+            strength_std = self.PARAMS_Stimulus['strength_std']
+            strength_dev = self.PARAMS_Stimulus['strength_dev']
+            
+            sigma_std = self.PARAMS_Stimulus['sigma_std']
+            sigma_dev = self.PARAMS_Stimulus['sigma_dev']
+                
+            fr_std = np.sum(self.save_pc_layer[:,temp[nbr_rep_std-1]])    
+            fr_dev = np.sum(self.save_pc_layer[:,temp[nbr_rep_std]])    
+
+                
+            
+            return fr_std, fr_dev
+            
+            
+            
             
     #endregion
     
@@ -1020,47 +1163,201 @@ class Stimulus:
         
         self.PARAMS_Stimulus = PARAMS_Stimulus
         self.PARAMS_Simulation = PARAMS_Simulation
+        # self.PARAMS_Simulation['t_total'] = (self.PARAMS_Stimulus['Tinter'] + self.PARAMS_Stimulus['Tstim'])*(self.PARAMS_Stimulus['nbr_rep_std']+ self.PARAMS_Stimulus['nbr_rep_dev']) + self.PARAMS_Stimulus['Tresting']
+        
         self.PARAMS_Stimulus['N_t'] = int(self.PARAMS_Simulation['t_total']/self.PARAMS_Simulation['dt'])
         self.stimulus = np.zeros((Ncells, self.PARAMS_Stimulus['N_t'])) #full matrix of stimuli for every neurons
         self.Ncells = Ncells
         
-        
-        
-    def generate_MMN_signal(self):
+        if self.PARAMS_Stimulus['type'] == 'deterministic_MMN':
+            self.generate_deterministic_MMN()
+            
+        if self.PARAMS_Stimulus['type'] == 'oscillation_pattern_MMN':
+            self.generate_pattern_MMN()
+            
+        if self.PARAMS_Stimulus['type'] == 'multi_control_paradigm':
+            self.generate_multi_control()
+            
+        if self.PARAMS_Stimulus['type'] == 'probabilistic_MMN':
+            self.generate_probabilistic_MMN()
+            
+#region define the deterministic MMN stimulus        
+    def generate_deterministic_MMN(self):
         ''' This function generates  a stimulus that will allow to test for MMN signal
         Let's first assume that the signal is deterministic in terms of oscillations 
         '''
         Tinter = self.PARAMS_Stimulus['Tinter']
         Tstim = self.PARAMS_Stimulus['Tstim']
-        nbr_rep = self.PARAMS_Stimulus['nbr_rep']
+        nbr_rep_std = self.PARAMS_Stimulus['nbr_rep_std']
+        nbr_rep_dev = self.PARAMS_Stimulus['nbr_rep_dev']
         std_id = self.PARAMS_Stimulus['std_id']
         dev_id = self.PARAMS_Stimulus['dev_id']
         Tresting = self.PARAMS_Stimulus['Tresting']
+        strength_std = self.PARAMS_Stimulus['strength_std']
+        strength_dev = self.PARAMS_Stimulus['strength_dev']
         
-        nbr_stim = 0
-        nbr_stim2 = -nbr_rep
+        sigma_std = self.PARAMS_Stimulus['sigma_std']
+        sigma_dev = self.PARAMS_Stimulus['sigma_dev']
+        
+        
+        nbr_stim_std = 0
+        nbr_stim_dev = -nbr_rep_std
+
         for t in range(self.PARAMS_Stimulus['N_t']):
-            if t < Tinter/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+            if t < Tinter/self.PARAMS_Simulation['dt'] + nbr_stim_std*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
                 self.stimulus[:,t] = 0.0
-            elif t < (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
-                if nbr_stim < nbr_rep:
-                    # print(nbr_stim)
-                    self.stimulus[:,t] = bf.generate_ring_stim(std_id, 43.2, self.Ncells, self.PARAMS_Stimulus['strength'])
+                
+            elif t < (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim_std*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                if nbr_stim_std < nbr_rep_std:
+                    
+                    self.stimulus[:,t] = bf.generate_ring_stim(std_id, sigma_std, self.Ncells, strength_std)
                
-                else: 
-                    if nbr_stim2 < 4:#nbr_rep:
+                else:  
+                    if nbr_stim_dev < nbr_rep_dev:
     
-                        self.stimulus[:,t] = bf.generate_ring_stim(dev_id, 43.2, self.Ncells, self.PARAMS_Stimulus['strength'])
+                        self.stimulus[:,t] = bf.generate_ring_stim(dev_id, sigma_dev, self.Ncells, strength_dev)
                     
                     else:
-                        self.stimulus[:,t] = bf.generate_ring_stim(std_id, 43.2, self.Ncells, self.PARAMS_Stimulus['strength'])
+                        self.stimulus[:,t] = bf.generate_ring_stim(std_id, sigma_std, self.Ncells, strength_std)
 
                     
-            if t > (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
-                print(nbr_stim2)
-                nbr_stim += 1
-                nbr_stim2 +=1
+            if t > (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim_std*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                
+                nbr_stim_std += 1
+                nbr_stim_dev +=1
+#endregion
+
+    def generate_pattern_MMN(self):
+        ''' This function generates a pattern stimulus ABABABAB that will allow to test the MMN in this context
+        '''
+        Tinter = self.PARAMS_Stimulus['Tinter']
+        Tstim = self.PARAMS_Stimulus['Tstim']
+        nbr_rep_std = self.PARAMS_Stimulus['nbr_rep_std']
+        nbr_rep_dev = self.PARAMS_Stimulus['nbr_rep_dev']
+        std_id = self.PARAMS_Stimulus['std_id']
+        dev_id = self.PARAMS_Stimulus['dev_id']
+        Tresting = self.PARAMS_Stimulus['Tresting']
+        strength_std = self.PARAMS_Stimulus['strength_std']
+        strength_dev = self.PARAMS_Stimulus['strength_dev']
         
+        sigma_std = self.PARAMS_Stimulus['sigma_std']
+        sigma_dev = self.PARAMS_Stimulus['sigma_dev']
+        
+        
+        nbr_stim_std = 0
+        nbr_stim_dev = -nbr_rep_std
+        nbr_oscillation = 0
+        # this time the stimulus is A_B_
+        # the deviant is B_B
+        # the trick is to have an oscillation varaible?
+        for t in range(self.PARAMS_Stimulus['N_t']):
+            
+            if t < Tinter/self.PARAMS_Simulation['dt'] + nbr_stim_std*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                
+                self.stimulus[:,t] = 0.0
+                
+            elif t < (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim_std*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                
+                if( nbr_oscillation == 0 ):
+                    if nbr_stim_dev < nbr_rep_std:
+                        self.stimulus[:,t] = bf.generate_ring_stim(std_id, sigma_std, self.Ncells, strength_std)
+                    else:
+                        self.stimulus[:,t] = bf.generate_ring_stim(dev_id, sigma_dev, self.Ncells, strength_dev)
+
+                else:
+                    self.stimulus[:,t] = bf.generate_ring_stim(dev_id, sigma_dev, self.Ncells, strength_dev)
+                    
+            if t > (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + nbr_stim_std*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                    
+                    if nbr_stim_dev > nbr_rep_std:
+                        nbr_stim_dev = -nbr_rep_std
+                        
+                    nbr_stim_std += 1
+                    nbr_stim_dev +=1
+                    if( nbr_oscillation == 0):
+                        
+                        nbr_oscillation = 1
+                    else:
+                        nbr_oscillation = 0
+                        
+                        
+    def generate_multi_control(self):
+        ''' Generate the stimuli distribution in the case of the multi-control paradigm '''
+        Tinter = self.PARAMS_Stimulus['Tinter']
+        list_std = self.PARAMS_Stimulus['list_std']
+        Tstim = self.PARAMS_Stimulus['Tstim']
+        std_id = self.PARAMS_Stimulus['std_id']
+        Tresting = self.PARAMS_Stimulus['Tresting']
+        strength_std = self.PARAMS_Stimulus['strength_std']
+        nbr_rep_std = self.PARAMS_Stimulus['nbr_rep_std']
+        sigma_std = self.PARAMS_Stimulus['sigma_std']
+        nbr_stim_std = 0
+        
+        i=0
+        stim_idx = np.random.randint(0,len(list_std))
+        for t in range(self.PARAMS_Stimulus['N_t']):
+                if t < Tinter/self.PARAMS_Simulation['dt'] + i*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+           
+                    self.stimulus[:,t] = 0.0
+           
+                elif t < (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + i*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                    self.stimulus[:,t] = bf.generate_ring_stim(list_std[stim_idx], sigma_std, self.Ncells, strength_std)
+                if t > (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + i*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                    i += 1
+                    # nbr_stim_std += 1
+                    stim_idx = np.random.randint(0,len(list_std))
+           
+    def generate_probabilistic_MMN(self):
+        ''' Generate the stimulus for the MMN task in a probabilistic way'''
+        Tinter = self.PARAMS_Stimulus['Tinter']
+        Tstim = self.PARAMS_Stimulus['Tstim']
+        # nbr_rep_std = self.PARAMS_Stimulus['nbr_rep_std']
+        # nbr_rep_dev = self.PARAMS_Stimulus['nbr_rep_dev']
+        std_id = self.PARAMS_Stimulus['std_id']
+        dev_id = self.PARAMS_Stimulus['dev_id']
+        Tresting = self.PARAMS_Stimulus['Tresting']
+        strength_std = self.PARAMS_Stimulus['strength_std']
+        strength_dev = self.PARAMS_Stimulus['strength_dev']
+        
+        sigma_std = self.PARAMS_Stimulus['sigma_std']
+        sigma_dev = self.PARAMS_Stimulus['sigma_dev']
+        
+        prob_std = self.PARAMS_Stimulus['prob_std']
+        prob_dev = 1.0 - prob_std
+        
+        i=0
+        stim_idx = np.random.uniform()
+        
+        
+        for t in range(self.PARAMS_Stimulus['N_t']):
+            
+                if t < Tinter/self.PARAMS_Simulation['dt'] + i*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+           
+                    self.stimulus[:,t] = 0.0
+           
+                elif t < (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + i*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+        
+                    if stim_idx < prob_std:
+                    
+                       self.stimulus[:,t] = bf.generate_ring_stim(std_id, sigma_std, self.Ncells, strength_std)
+                    
+                    else:
+                        
+                        self.stimulus[:,t] = bf.generate_ring_stim(dev_id, sigma_dev, self.Ncells, strength_dev)
+                        
+                if t > (Tinter + Tstim)/self.PARAMS_Simulation['dt'] + i*(Tstim+Tinter)/self.PARAMS_Simulation['dt'] + Tresting/self.PARAMS_Simulation['dt']:
+                    
+                    i += 1
+                    # nbr_stim_std += 1
+                    stim_idx = np.random.uniform()
+        
+                    
+                    
 #endregion
         
     
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)

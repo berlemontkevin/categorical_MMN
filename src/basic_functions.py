@@ -57,6 +57,10 @@ def deriv_integrator(x,alpha,fI,tau):
 def euler_update(x, f, dt, tau = 1.0):
     return relu(x + dt * f / tau)
 
+@njit(cache=True)
+def leaky_integrator(x, f, dt, tau = 1.0, alpha = 1.0):
+    return euler_update(x, (-alpha*x + f), dt, tau)
+
 def generate_ring_stim(center, sigma, N, tau):
     ''' Fucntion that generates an exponential stimulus
     '''
@@ -71,9 +75,9 @@ def generate_ring_stim(center, sigma, N, tau):
 
 @njit(cache=True)
 def soft_bound(x, xmax,beta = 1.0):
-    return np.sign(xmax -x)*np.abs((xmax -x))**beta
+    return np.power(np.sign(xmax -x)*np.abs((xmax -x)),beta)
 
-
+@njit(cache=True)
 def Hebb_with_decay(w, rpre, rpost, gamma, lambda_dec, wmax = 1.0, beta = 1.0):
     ''' Return de Hebbian update rule with decay
     It takes am atrix into argument
@@ -83,6 +87,7 @@ def Hebb_with_decay(w, rpre, rpost, gamma, lambda_dec, wmax = 1.0, beta = 1.0):
     
     return gamma * rtot * soft_bound(w, wmax, beta) - lambda_dec*w
 
+@njit(cache=True)
 def anti_Hebb_with_decay(w, rpre, rpost, gamma, lambda_dec, wmax = 1.0, beta = 1.0):
     ''' Return de anti Hebbian update rule with decay
     It takes am atrix into argument
@@ -111,3 +116,32 @@ def threshold_matrix(m,threshold):
     ''' Return the matrix with saturated values above threshold
     '''
     return np.minimum(m,threshold)
+
+
+# @njit(cache=True)
+def compute_list_time_input(dt, ttotal, tinter, tresting, tstim, delay = 0.1):
+    # temp = [t for t in np.arange(tresting, ttotal, dt)]
+    
+    max_iter = int(np.floor((ttotal - tresting)/(tinter+tstim)))
+    temp = np.arange(tresting + tinter + delay,ttotal,tinter + tstim)/dt
+    temp = temp.astype(int)
+    return temp
+
+def compute_MMN_effect(pc_layer,PARAMS_Stimulus):
+    ''' Compute the MMN effect of the network
+    '''
+    # PARAMS_Stimulus = {'tau': 0.1, 't_stim': 0.1, 't_rest': 0.1, 't_inter': 0.1, 'N_stim': 1, 'N_rest': 1, 'N_inter': 1}
+    tau = PARAMS_Stimulus['tau']
+    t_stim = PARAMS_Stimulus['t_stim']
+    t_rest = PARAMS_Stimulus['t_rest']
+    t_inter = PARAMS_Stimulus['t_inter']
+    N_stim = PARAMS_Stimulus['N_stim']
+    N_rest = PARAMS_Stimulus['N_rest']
+    N_inter = PARAMS_Stimulus['N_inter']
+    dt = PARAMS_Stimulus['dt']
+    ttotal = PARAMS_Stimulus['ttotal']
+    tresting = PARAMS_Stimulus['tresting']
+    tstim = PARAMS_Stimulus['tstim']
+    tinter = PARAMS_Stimulus['tinter']
+    
+    return pc_layer[:,nbr_rep-1] - pc_layer[:,nbr_rep]
