@@ -4,5 +4,11 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"gitlab.repositories": {
+			"/mnt/c/Users/kevin/OneDrive/2-code/1-Research_projects/1-project-categorical-MMN": {
+				"preferredRemoteName": "origin-wanglab"
+			}
+		}
+	}
 }
