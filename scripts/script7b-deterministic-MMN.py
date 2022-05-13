@@ -2,7 +2,7 @@ import os
 import sys
 import importlib
 
-project_dir = '/home/kb3856/1-project-categorical-MMN'
+project_dir = '/home/kb3856/berlemont-categorical-mmn'
 # project_dir = '/mnt/c/Users/kevin/OneDrive/2-code/1-Research_projects/1-project-categorical-MMN'
 src_dir = os.path.join(project_dir, 'src')
 sys.path.append(src_dir)
@@ -34,7 +34,7 @@ name = 'MMN_effect_deterministic_database.db'
 file_dir = os.path.join(data_dir, name)
 con = sqlite3.connect(file_dir)
 c = con.cursor()
-c.execute("""Create table if not exists MMN_effect_deterministic_adding_tau (name_id text
+c.execute("""Create table if not exists MMN_effect_deterministic (name_id text
           ,
           adaptation_tc float,
           adaptation float,
@@ -51,7 +51,8 @@ c.execute("""Create table if not exists MMN_effect_deterministic_adding_tau (nam
           , fr_dev float
           , MMN float
           , MMN_norm float
-          , tau_int float
+          , tau_int float,
+          tau_facilitation float
           )""")
 con.commit()
 con.close()
@@ -73,14 +74,15 @@ dict_param = {
 'top_down_feedback_list' : [2.0],#[2.0, 1.0, 3.0],
 'Tinter_list' : [0.5,0.7,1.0,1.5,2.0,3.0,5.0,0.2, 10.0, 2.5],
 'dev_id_list' : [88],#[8,108,88,78,68,58,48,38,122],
-'delay_list': [50.0,100.0],
+'delay_list': [100.0],#[50.0,100.0],
 'ndf_plasticity': [1],
 'int_plasticity': [1],
 'bool_sigma_ndf': [1],
 'bool_sigma_int': [1],
 'adaptation_tc': [0.1] ,
-'nbr_rep': [1,2,3,4,5,6,7,8,9,10,15,20],
-    'tau_int': [0.2,0.8,1.0,2.0,3.0,5.0, 1.2, 1.5, 1.8, 0.1]
+'nbr_rep': [1,2,5,8,10,20],#[]1,2,3,4,5,6,7,8,9,10,15,20],
+    'tau_int': [0.2,0.8,1.0,2.0,3.0,5.0, 1.2, 1.5, 1.8, 0.1],
+    'tau_facilitation':[0.5,1.0,1.5]
 }
     
 all_dicts = create_list_dict(dict_param)
@@ -88,7 +90,7 @@ random.shuffle(all_dicts)
 
 def run_parallel(list_param):
     name_v0 = 'plast_int'+str(list_param[6]) + '_plast_ndf'+ str(list_param[5])+'dev_id'+str(list_param[3])+'adapt_'+str(list_param[0])+'topdown_'+str(list_param[1])+'Tinter_'+str(list_param[2])+'delay_'+str(list_param[4])+'broadtodend_'+str(list_param[7])+'broadtondf_'+str(list_param[8])
-    name = 'plast_int'+str(list_param[6]) + '_plast_ndf'+ str(list_param[5])+'dev_id'+str(list_param[3])+'adapt_'+str(list_param[0])+'topdown_'+str(list_param[1])+'Tinter_'+str(list_param[2])+'delay_'+str(list_param[4])+'broadtodend_'+str(list_param[7])+'broadtondf_'+str(list_param[8])+'adaptationtc_'+str(list_param[9]) + 'nbr_rep'+str(list_param[10]) + 'tau_int' + str(list_param[11])
+    name = 'plast_int'+str(list_param[6]) + '_plast_ndf'+ str(list_param[5])+'dev_id'+str(list_param[3])+'adapt_'+str(list_param[0])+'topdown_'+str(list_param[1])+'Tinter_'+str(list_param[2])+'delay_'+str(list_param[4])+'broadtodend_'+str(list_param[7])+'broadtondf_'+str(list_param[8])+'adaptationtc_'+str(list_param[9]) + 'nbr_rep'+str(list_param[10]) + 'tau_int' + str(list_param[11]) + 'tau_facilitation'+str(list_param[12])
     con = sqlite3.connect(file_dir)
     c = con.cursor()
     c.execute("SELECT name_id FROM MMN_effect_deterministic WHERE (name_id = ?) AND (MMN IS NOT NULL)", (name,))
@@ -154,6 +156,12 @@ def run_parallel(list_param):
             params_pc['tau_adaptation'] = list_param[9]
             params_sst['tau_adaptation'] = list_param[9]
             
+            params_pc['tau_facilitation'] = list_param[12]
+            params_pv['tau_facilitation'] = list_param[12]
+            params_sst['tau_facilitation'] = list_param[12]
+            params_vip['tau_facilitation'] = list_param[12]
+            params_ndf['tau_facilitation'] = list_param[12]
+            
             stim = cl.Stimulus(params_stim, params_sim, params_pc['Ncells'])
 
             my_network = cl.Network(params_int, params_syn, params_pc, params_pv, params_sst, params_vip, params_ndf, params_sim, params_stim)
@@ -174,7 +182,7 @@ def run_parallel(list_param):
             # print('a')
             con = sqlite3.connect(file_dir)
             c = con.cursor()
-            c.execute("""INSERT INTO MMN_effect_deterministic_adding_tau (name_id 
+            c.execute("""INSERT INTO MMN_effect_deterministic (name_id 
           ,
           adaptation_tc ,
           adaptation ,
@@ -191,8 +199,9 @@ def run_parallel(list_param):
           , fr_dev 
           , MMN 
           , MMN_norm 
-          , tau_int
-          )""" """VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?, ? )""", (name,list_param[9],list_param[0],list_param[10], list_param[1],list_param[2],list_param[3],list_param[4],list_param[5],list_param[6],list_param[7],list_param[8],fr_std, fr_dev, mmn, mmn_norm, list_param[11]))
+          , tau_int,
+          tau_facilitation
+          )""" """VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,? )""", (name,list_param[9],list_param[0],list_param[10], list_param[1],list_param[2],list_param[3],list_param[4],list_param[5],list_param[6],list_param[7],list_param[8],fr_std, fr_dev, mmn, mmn_norm, list_param[11], list_param[12]))
             con.commit()
             con.close()        
             lock.release()
