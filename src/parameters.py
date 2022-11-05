@@ -31,9 +31,9 @@ PARAMS_Synapses_Integrator = {
     'weight_to_dend': 0.7,#0.5
     'weight_to_pv': 0.066,
     'weight_to_vip': 0.035,
-    'weight_to_ndf': 0.155/50,
+    'weight_to_ndf': 0.155,#/50,
     'sigma_to_dend': 43.2,
-    'sigma_to_ndf': 1.2,
+    'sigma_to_ndf': 43.2,#1.2,
     'sigma_to_pv': 43.2,
     'sigma_to_vip': 43.2,
     'dt': 0.001,
@@ -149,7 +149,7 @@ PARAMS_NDF= {
     'r0':-33.0,
     'Ibg': 290 * 0.001, #nA
     'tau':0.002, #seconds
-    'weight_to_dend': -0.5*0.5/30,#0.89,
+    'weight_to_dend': -0.5*0.5,#/30,#0.89,
     'weight_to_pv': -0.0,#-0.47,
     'depression_to_dend': True,
     'fD': 0.2,
@@ -165,7 +165,7 @@ PARAMS_NDF= {
     'gamma': 0.007,#0.005 ,
     'lambda_dec': 1.0,#0.2
     'bool_plasticity': 1,
-    'sigma_to_dend': 1.2,
+    'sigma_to_dend': 43.2#1.2,
 }
 
 PARAMS_Synapses= {
