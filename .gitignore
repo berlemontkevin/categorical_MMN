@@ -3,12 +3,16 @@
 ################################################################################
 
 # Folders to ignore - files may be too large, too many, etc. NOTE: EDIT IF NEEDED.
-data
-plots
-papers
-_research
-database
-env
+data/
+plots/
+papers/
+_research/
+database/
+env/
+reports/
+
+#Ignore vscode
+.vscode/
 
 ################################################################################
 #                                    Julia                                     #
