@@ -1,6 +1,9 @@
 import numpy as np
 from numba import njit
 
+import logging
+logger = logging.getLogger(__name__)
+
 @njit(cache=True)
 def sigmoid(x):
     return 1 / (1 + np.exp(-x)) 
@@ -35,6 +38,7 @@ def gaussian_connectivity(x,mu, Jmin, Jmax, sigma):
 def create_ring_connectivity(NCells1, NCells2, Jmax, sigma, Jmin = 0.0):
         ''' Create the ring connectivity from Layer 1 to Layer 2
         '''
+        logger.info('Creating ring connectivity')
         theta_range1 = np.linspace(0.0, 360.0 - 360.0/NCells1, NCells1)
         theta_range2 = np.linspace(0.0, 360.0 - 360.0/NCells2, NCells2)
 
@@ -64,6 +68,7 @@ def leaky_integrator(x, f, dt, tau = 1.0, alpha = 1.0):
 def generate_ring_stim(center, sigma, N, tau):
     ''' Fucntion that generates an exponential stimulus
     '''
+    logger.info('Generating ring stimulus')
     theta_range1 = np.linspace(0.0, 360.0 - 360.0/N, N)
     center = center*360.0/N
     stim = np.zeros(N)
