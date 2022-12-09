@@ -1072,6 +1072,8 @@ class Network:
         if self.PARAMS_Stimulus['type'] not in ['multi_control_paradigm','probabilistic_MMN','deterministic_MMN']:
             raise ValueError('The function compute_mean_firing_rate is only defined for multi_control_paradigm')
         elif self.PARAMS_Stimulus['type'] == 'multi_control_paradigm':
+            print('The function compute_mean_firing_rate is defined for multi_control_paradigm')
+
             temp = bf.compute_list_time_input(self.PARAMS_Simulation['dt'],self.PARAMS_Simulation['t_total'], self.PARAMS_Stimulus['Tinter'], self.PARAMS_Stimulus['Tresting'], self.PARAMS_Stimulus['Tstim'], delay=delay)
             
             mean_temp = np.zeros(len(temp))
@@ -1084,6 +1086,8 @@ class Network:
             return np.mean(mean_temp), np.mean(mean_sum)
         
         elif self.PARAMS_Stimulus['type'] == 'probabilistic_MMN':
+            print('The function compute_mean_firing_rate is defined for probabilistic_MMN')
+
             std_id = self.PARAMS_Stimulus['std_id']
             dev_id = self.PARAMS_Stimulus['dev_id']
             
@@ -1109,7 +1113,7 @@ class Network:
             return np.mean(mean_temp_std), np.mean(mean_temp_dev), np.mean(mean_sum_std), np.mean(mean_sum_dev)
         
         elif self.PARAMS_Stimulus['type'] == 'deterministic_MMN':
-           
+            print('The function compute_mean_firing_rate is defined for deterministic_MMN')
             temp = bf.compute_list_time_input(self.PARAMS_Simulation['dt'],self.PARAMS_Simulation['t_total'], self.PARAMS_Stimulus['Tinter'], self.PARAMS_Stimulus['Tresting'], self.PARAMS_Stimulus['Tstim'])
         
             save_dict = {
@@ -1136,10 +1140,14 @@ class Network:
             sigma_std = self.PARAMS_Stimulus['sigma_std']
             sigma_dev = self.PARAMS_Stimulus['sigma_dev']
                 
-            fr_std = np.sum(self.save_pc_layer[:,temp[nbr_rep_std-1]])    
-            fr_dev = np.sum(self.save_pc_layer[:,temp[nbr_rep_std]])    
+            fr_std = np.sum(self.save_pc_layer[:,temp[nbr_rep_std-1]])  
+            fr_dev = np.sum(self.save_pc_layer[:,temp[nbr_rep_std]])
 
-                
+            #divide by the number of cells in PC layer
+            
+            Ncells = self.PARAMS_PC['Ncells']
+            fr_std = fr_std/Ncells
+            fr_dev = fr_dev/Ncells    
             
             return fr_std, fr_dev
             

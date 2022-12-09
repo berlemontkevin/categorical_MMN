@@ -2,8 +2,8 @@ import os
 import sys
 import importlib
 
-project_dir = '/home/kb3856/berlemont-categorical-mmn'
-# project_dir = '/mnt/c/Users/kevin/OneDrive/2-code/1-Research_projects/1-project-categorical-MMN'
+# project_dir = '/home/kb3856/berlemont-categorical-mmn'
+project_dir = '/mnt/c/Users/kevin/OneDrive/projects/categorical_MMN'
 src_dir = os.path.join(project_dir, 'src')
 sys.path.append(src_dir)
 import parameters as params
@@ -30,7 +30,7 @@ lock = Lock()
 
 # Creating the databse to save the results
 # TODO list of all the fields
-name = 'MMN_effect_deterministic_database.db'
+name = 'MMN_effect_deterministic_databasev2.db'
 file_dir = os.path.join(data_dir, name)
 con = sqlite3.connect(file_dir)
 c = con.cursor()
@@ -171,7 +171,7 @@ def run_parallel(list_param):
 
                     
             fr_std, fr_dev = my_network.compute_mean_firing_rate(stim, delay = delay)
-   
+            print(fr_std/128, fr_dev)
         
         mmn = fr_dev - fr_std
         mmn_norm = mmn/fr_std
@@ -214,6 +214,6 @@ def run_parallel(list_param):
 
 
 
-n_threads = 10
+n_threads = 1
 pool = Pool(processes = n_threads)
 pool.map(run_parallel, all_dicts)
