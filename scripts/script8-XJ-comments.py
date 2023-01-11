@@ -2,7 +2,7 @@ import os
 import sys
 import importlib
 
-project_dir = '/mnt/c/Users/kevin/OneDrive/projects/categorical_MMN'
+project_dir = '/home/kberlemo/projects/categorical_MMN'
 src_dir = os.path.join(project_dir, 'src')
 sys.path.append(src_dir)
 import parameters as params
